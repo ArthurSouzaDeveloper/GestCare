@@ -98,6 +98,7 @@
     <p>Entre com suas credenciais para continuar.</p>
 
     <form method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       {% if casa_preselecionar %}
       <input type="hidden" name="casa_id" value="{{ casa_preselecionar.id }}">
       {% endif %}

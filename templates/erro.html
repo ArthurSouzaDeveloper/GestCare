@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block titulo %}Erro {{ codigo }}{% endblock %}
+
+{% block conteudo %}
+<div style="text-align:center;padding:4rem 1rem">
+  <div style="font-size:4rem;font-weight:800;color:var(--cor-primaria-escura);margin-bottom:.5rem">{{ codigo }}</div>
+  <p style="font-size:1.1rem;color:var(--cor-texto-suave);margin-bottom:2rem">{{ mensagem }}</p>
+  <a href="{{ url_for('index') if session.get('usuario_id') else url_for('login') }}"
+     class="botao botao-primario">Voltar ao início</a>
+</div>
+{% endblock %}

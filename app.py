@@ -4,6 +4,7 @@ import json
 import base64
 import atexit
 import re
+import logging
 import unicodedata
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, flash, session, send_from_directory, jsonify
@@ -18,7 +19,97 @@ from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from apscheduler.schedulers.background import BackgroundScheduler
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('GESTCARE_SECRET_KEY', 'casa-idosos-sistema-2026-troque-em-producao')
+
+_secret = os.environ.get('GESTCARE_SECRET_KEY', '')
+if not _secret:
+    import warnings
+    warnings.warn('GESTCARE_SECRET_KEY não definida — usando chave insegura. Defina a variável de ambiente em produção.')
+    _secret = 'casa-idosos-sistema-2026-troque-em-producao'
+app.secret_key = _secret
+
+# Cookies de sessão seguros
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = bool(os.environ.get('HTTPS', ''))
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB máximo por upload
+
+from logger import setup_logger, registrar_hooks
+log = setup_logger(app)
+registrar_hooks(app)
+
+
+import hmac
+import hashlib
+
+def _gerar_csrf_token():
+    if 'csrf_token' not in session:
+        session['csrf_token'] = uuid.uuid4().hex
+    return session['csrf_token']
+
+def _validar_csrf():
+    token_sessao = session.get('csrf_token', '')
+    token_form   = request.form.get('csrf_token', '')
+    if not token_sessao or not hmac.compare_digest(token_sessao, token_form):
+        log.warning('csrf_falhou', extra={'gc_action': 'csrf_check',
+                    'gc_path': request.path, 'gc_user_id': session.get('usuario_id')})
+        return False
+    return True
+
+app.jinja_env.globals['csrf_token'] = _gerar_csrf_token
+
+ROTAS_SEM_CSRF = {'/push/inscrever', '/push/desinscrever'}
+
+@app.before_request
+def checar_csrf():
+    if request.method == 'POST' and request.path not in ROTAS_SEM_CSRF:
+        if not _validar_csrf():
+            flash('Requisição inválida. Recarregue a página e tente novamente.', 'erro')
+            return redirect(url_for('login'))
+
+
+@app.errorhandler(413)
+def arquivo_muito_grande(e):
+    flash('Arquivo muito grande. O limite é 16 MB.', 'erro')
+    return redirect(request.referrer or url_for('index')), 302
+
+@app.errorhandler(404)
+def pagina_nao_encontrada(e):
+    return render_template('erro.html', codigo=404, mensagem='Página não encontrada.'), 404
+
+@app.errorhandler(500)
+def erro_interno(e):
+    log.error('erro_500', extra={'gc_action': 'error_500', 'gc_path': request.path})
+    return render_template('erro.html', codigo=500, mensagem='Erro interno. Tente novamente em instantes.'), 500
+
+@app.after_request
+def adicionar_headers_seguranca(response):
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Permissions-Policy'] = 'geolocation=(), microphone=(), camera=()'
+    if not app.debug:
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    return response
+
+# ---------------------------------------------------------------------------
+# Rate limiting simples em memória (por IP, sem dependência externa)
+# Máximo: 10 tentativas de login por IP a cada 60 segundos
+# ---------------------------------------------------------------------------
+_login_tentativas: dict = {}  # {ip: [timestamps]}
+
+def _checar_rate_limit(ip: str, limite: int = 10, janela: int = 60) -> bool:
+    """Retorna True se o IP ainda está dentro do limite permitido."""
+    agora = datetime.now().timestamp()
+    historico = [t for t in _login_tentativas.get(ip, []) if agora - t < janela]
+    if len(historico) >= limite:
+        _login_tentativas[ip] = historico
+        return False
+    historico.append(agora)
+    _login_tentativas[ip] = historico
+    # Limpeza periódica: remove IPs com histórico vazio para evitar crescimento infinito
+    if len(_login_tentativas) > 5000:
+        _login_tentativas.clear()
+    return True
 
 
 @app.context_processor
@@ -53,7 +144,11 @@ def _obter_chave_publica_vapid():
     return _b64url(raw)
 
 
-VAPID_PUBLIC_KEY = _obter_chave_publica_vapid()
+try:
+    VAPID_PUBLIC_KEY = _obter_chave_publica_vapid()
+except Exception:
+    VAPID_PUBLIC_KEY = None
+    logging.warning('VAPID: chave privada não encontrada — notificações push desativadas')
 
 
 def enviar_push_para_equipe(casa_id, titulo, corpo, url='/'):
@@ -81,6 +176,15 @@ def enviar_push_para_equipe(casa_id, titulo, corpo, url='/'):
                 status = exc.response.status_code if exc.response is not None else None
                 if status in (404, 410):
                     conn.execute('DELETE FROM push_subscriptions WHERE id = ?', (inscricao['id'],))
+                    logging.getLogger('gestcare.push').info(
+                        'push_subscription_removida', extra={'gc_action': 'push_cleanup',
+                        'gc_subscription_id': inscricao['id'], 'gc_status': status}
+                    )
+                else:
+                    logging.getLogger('gestcare.push').error(
+                        'push_falhou', extra={'gc_action': 'push_send',
+                        'gc_subscription_id': inscricao['id'], 'gc_status': status}
+                    )
 
 
 def checar_lembretes_antibiotico():
@@ -115,7 +219,7 @@ def checar_lembretes_antibiotico():
                 m['casa_id'],
                 f"💊 Antibiótico — {m['paciente_nome']}",
                 corpo,
-                url_for('detalhe_paciente', paciente_id=m['paciente_id'])
+                f"/paciente/{m['paciente_id']}"
             )
             conn.execute(
                 'UPDATE medicamentos SET ultimo_alerta_enviado = ? WHERE id = ?',
@@ -149,8 +253,13 @@ def get_db():
     try:
         yield conn
         conn.commit()
-    except Exception:
+    except Exception as exc:
         conn.rollback()
+        logging.getLogger('gestcare.db').error(
+            'db_rollback: %s', type(exc).__name__,
+            exc_info=exc,
+            extra={'gc_action': 'db_rollback'}
+        )
         raise
     finally:
         conn.close()
@@ -420,14 +529,34 @@ def extensao_permitida(nome_arquivo):
     return '.' in nome_arquivo and nome_arquivo.rsplit('.', 1)[1].lower() in EXTENSOES_PERMITIDAS
 
 
+_MIME_PERMITIDOS = {
+    b'\x25\x50\x44\x46': 'pdf',          # %PDF
+    b'\x89\x50\x4e\x47': 'png',          # PNG
+    b'\xff\xd8\xff':      'jpg',          # JPEG
+    b'\x52\x49\x46\x46': 'webp',         # WEBP (RIFF)
+}
+
+def _mime_valido(arquivo) -> bool:
+    cabecalho = arquivo.read(8)
+    arquivo.seek(0)
+    for assinatura in _MIME_PERMITIDOS:
+        if cabecalho[:len(assinatura)] == assinatura:
+            return True
+    return False
+
 def salvar_arquivo_exame(arquivo):
     """Salva o arquivo anexado a um exame (se houver) e retorna o nome salvo."""
     if not arquivo or not arquivo.filename:
         return None
     if not extensao_permitida(arquivo.filename):
         return None
-    nome_seguro = secure_filename(arquivo.filename)
-    ext = nome_seguro.rsplit('.', 1)[1].lower()
+    if not _mime_valido(arquivo):
+        log.warning('upload_mime_invalido', extra={'gc_action': 'upload_exame',
+                    'gc_user_id': session.get('usuario_id')})
+        return None
+    ext = arquivo.filename.rsplit('.', 1)[1].lower()
+    if ext not in EXTENSOES_PERMITIDAS:
+        return None
     arquivo_nome = f"{uuid.uuid4().hex}.{ext}"
     arquivo.save(os.path.join(UPLOAD_FOLDER, arquivo_nome))
     return arquivo_nome
@@ -633,6 +762,12 @@ def login_casa(slug):
         return redirect(url_for('login'))
 
     if request.method == 'POST':
+        ip = request.remote_addr
+        if not _checar_rate_limit(ip):
+            log.warning('rate_limit_login', extra={'gc_action': 'login_bloqueado', 'gc_ip': ip})
+            flash('Muitas tentativas. Aguarde 1 minuto antes de tentar novamente.', 'erro')
+            return render_template('login.html', casa_preselecionar=casa_pre)
+
         email = request.form.get('email', '').strip()
         senha = request.form.get('senha', '')
         casa_id_escolhida = str(casa_pre['id'])
@@ -664,6 +799,8 @@ def login_casa(slug):
             session['casa_id']        = usuario['casa_id']
             session['casa_nome']      = casa['nome'] if casa else None
             session['casa_slug']      = casa_pre['slug']
+            log.info('login_sucesso', extra={'gc_action': 'login', 'gc_user_id': usuario['id'],
+                     'gc_perfil': usuario['perfil'], 'gc_casa_id': usuario['casa_id']})
             flash(f'Bem-vindo(a), {usuario["nome"]}!', 'sucesso')
             if usuario['perfil'] == 'superadmin':
                 return redirect(url_for('listar_casas'))
@@ -673,6 +810,8 @@ def login_casa(slug):
                 return redirect(url_for('painel_responsavel'))
             return redirect(url_for('index'))
         else:
+            log.warning('login_falhou', extra={'gc_action': 'login', 'gc_email_hash': hash(email),
+                        'gc_casa_slug': casa_pre['slug']})
             flash('E-mail ou senha incorretos.', 'erro')
             return render_template('login.html', casa_preselecionar=casa_pre)
 
@@ -689,6 +828,12 @@ def login():
         return redirect(url_for('index'))
 
     if request.method == 'POST':
+        ip = request.remote_addr
+        if not _checar_rate_limit(ip):
+            log.warning('rate_limit_login', extra={'gc_action': 'login_bloqueado', 'gc_ip': ip})
+            flash('Muitas tentativas. Aguarde 1 minuto antes de tentar novamente.', 'erro')
+            return render_template('login.html')
+
         email = request.form.get('email', '').strip()
         senha = request.form.get('senha', '')
 
@@ -716,6 +861,8 @@ def login():
             session['casa_id']        = usuario['casa_id']
             session['casa_nome']      = casa['nome'] if casa else None
             session['casa_slug']      = casa['slug'] if casa else None
+            log.info('login_sucesso', extra={'gc_action': 'login', 'gc_user_id': usuario['id'],
+                     'gc_perfil': usuario['perfil'], 'gc_casa_id': usuario['casa_id']})
             flash(f'Bem-vindo(a), {usuario["nome"]}!', 'sucesso')
             if usuario['perfil'] == 'superadmin':
                 return redirect(url_for('listar_casas'))
@@ -725,6 +872,7 @@ def login():
                 return redirect(url_for('painel_responsavel'))
             return redirect(url_for('index'))
         else:
+            log.warning('login_falhou', extra={'gc_action': 'login', 'gc_email_hash': hash(email)})
             flash('E-mail ou senha incorretos.', 'erro')
             return render_template('login.html')
     return render_template('login.html')
@@ -787,9 +935,13 @@ def _processar_cadastro_responsavel(casas=None, casa_preselecionar=None):
                 ''', (nome, email, hash_senha(senha), cpf, casa_id))
                 usuario_id = cursor.lastrowid
         except sqlite3.IntegrityError:
+            log.warning('cadastro_email_duplicado', extra={'gc_action': 'cadastro_responsavel',
+                        'gc_casa_id': casa_id})
             flash('Este e-mail já está cadastrado.', 'erro')
             return render_template('responsavel_cadastro.html', casas=casas, casa_preselecionar=casa_preselecionar)
 
+        log.info('cadastro_responsavel_ok', extra={'gc_action': 'cadastro_responsavel',
+                 'gc_user_id': usuario_id, 'gc_casa_id': casa['id']})
         session.permanent = False
         session['usuario_id']     = usuario_id
         session['usuario_nome']   = nome
@@ -1315,6 +1467,9 @@ def novo_paciente():
                     ))
                 prof_idx += 1
 
+        log.info('paciente_criado', extra={'gc_action': 'novo_paciente',
+                 'gc_paciente_id': paciente_id, 'gc_casa_id': casa_id_atual(),
+                 'gc_user_id': session.get('usuario_id')})
         flash('Paciente cadastrado com sucesso!', 'sucesso')
         return redirect(url_for('detalhe_paciente', paciente_id=paciente_id))
     return render_template('paciente_form.html', paciente=None, medicamentos=[],
@@ -1883,7 +2038,8 @@ def listar_evolucoes(paciente_id):
             'SELECT * FROM evolucoes_medicas WHERE paciente_id = ? ORDER BY data_evolucao DESC, id DESC',
             (paciente_id,)
         ).fetchall()
-    return render_template('evolucoes.html', paciente=dict(paciente), evolucoes=evolucoes)
+    return render_template('evolucoes.html', paciente=dict(paciente), evolucoes=evolucoes,
+                           hoje=date.today().isoformat())
 
 
 @app.route('/paciente/<int:paciente_id>/evolucao/nova', methods=['POST'])
@@ -1942,7 +2098,8 @@ def listar_visitas(paciente_id):
             'SELECT * FROM visitas WHERE paciente_id = ? ORDER BY data_visita DESC, hora_entrada DESC',
             (paciente_id,)
         ).fetchall()
-    return render_template('visitas.html', paciente=dict(paciente), visitas=visitas)
+    return render_template('visitas.html', paciente=dict(paciente), visitas=visitas,
+                           hoje=date.today().isoformat())
 
 
 @app.route('/paciente/<int:paciente_id>/visita/nova', methods=['POST'])
@@ -2059,6 +2216,35 @@ def excluir_exame(exame_id):
     return redirect(url_for('index'))
 
 
+@app.route('/exame/arquivo/<nome_arquivo>')
+@login_obrigatorio
+def servir_exame(nome_arquivo):
+    """Serve arquivos de exame apenas para usuários autenticados com acesso ao paciente."""
+    perfil = session.get('usuario_perfil')
+    with get_db() as conn:
+        if perfil == 'responsavel':
+            # Responsável só acessa exames do seu próprio paciente vinculado
+            paciente_id = session.get('paciente_id')
+            exame = conn.execute(
+                'SELECT e.id FROM exames e WHERE e.arquivo_nome = ? AND e.paciente_id = ?',
+                (nome_arquivo, paciente_id)
+            ).fetchone()
+        else:
+            # Equipe e superadmin: restringe à casa
+            exame = conn.execute('''
+                SELECT e.id FROM exames e
+                JOIN pacientes p ON e.paciente_id = p.id
+                WHERE e.arquivo_nome = ? AND (p.casa_id = ? OR ? IS NULL)
+            ''', (nome_arquivo, casa_id_atual(), casa_id_atual())).fetchone()
+
+    if not exame:
+        log.warning('acesso_negado_exame', extra={'gc_action': 'servir_exame',
+                    'gc_arquivo': nome_arquivo, 'gc_user_id': session.get('usuario_id')})
+        return 'Acesso negado.', 403
+
+    return send_from_directory(UPLOAD_FOLDER, nome_arquivo)
+
+
 # ============================================================================
 # NOTIFICAÇÕES PUSH
 # ============================================================================
@@ -2147,4 +2333,4 @@ if __name__ == '__main__':
     print("Acesse: http://localhost:5000")
     print("Para parar: Ctrl+C")
     print("=" * 60)
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(debug=False, host='0.0.0.0', port=5000)

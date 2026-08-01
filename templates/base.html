@@ -212,6 +212,19 @@
   </nav>
 {% endif %}
 
+<script>
+// Injeta token CSRF em todos os formulários POST automaticamente
+document.addEventListener('DOMContentLoaded', function() {
+  var token = '{{ csrf_token() }}';
+  document.querySelectorAll('form[method="POST"], form[method="post"]').forEach(function(f) {
+    if (!f.querySelector('input[name="csrf_token"]')) {
+      var inp = document.createElement('input');
+      inp.type = 'hidden'; inp.name = 'csrf_token'; inp.value = token;
+      f.appendChild(inp);
+    }
+  });
+});
+</script>
 <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 {% block scripts %}{% endblock %}
 </body>

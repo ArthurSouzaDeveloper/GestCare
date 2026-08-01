@@ -58,7 +58,7 @@
           {% endif %}
           {% if e.arquivo_nome %}
           <div style="margin-top:.5rem">
-            <a href="{{ url_for('static', filename='uploads/exames/' + e.arquivo_nome) }}"
+            <a href="{{ url_for('servir_exame', nome_arquivo=e.arquivo_nome) }}"
                target="_blank" class="botao botao-secundario botao-pequeno"><i class="ti ti-paperclip" aria-hidden="true"></i> Ver documento anexado</a>
           </div>
           {% endif %}
