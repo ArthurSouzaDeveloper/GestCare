@@ -141,7 +141,7 @@
     <h2 class="secao-titulo"><i class="ti ti-salad" aria-hidden="true"></i> Comorbidades e Alimentação</h2>
     <button class="botao botao-primario botao-pequeno"
             onclick="abrirModal('modal-dieta')">
-      {{ '<i class="ti ti-edit"></i> Editar' if dieta else '+ Preencher' }}
+      {% if dieta %}Editar{% else %}+ Preencher{% endif %}
     </button>
   </div>
   {% if dieta %}
@@ -196,7 +196,7 @@
     <h2 class="secao-titulo"><i class="ti ti-brain" aria-hidden="true"></i> Ficha Psicológica</h2>
     <button class="botao botao-primario botao-pequeno"
             onclick="abrirModal('modal-psicologico')">
-      {{ '<i class="ti ti-edit"></i> Editar' if ficha_psico else '+ Preencher' }}
+      {% if ficha_psico %}Editar{% else %}+ Preencher{% endif %}
     </button>
   </div>
   {% if ficha_psico %}
