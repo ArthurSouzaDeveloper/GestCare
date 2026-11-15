@@ -2,7 +2,7 @@
 {% block titulo %}Verificar identidade{% endblock %}
 
 {% block conteudo %}
-<h1 class="titulo-pagina"><i class="ti ti-id" aria-hidden="true"></i> Verificar minha identidade</h1>
+<h1 class="titulo-pagina"><svg class="ti" aria-hidden="true"><use href="#ti-id"/></svg> Verificar minha identidade</h1>
 <p class="subtitulo">A casa confere seu documento e sua foto antes de liberar o acesso completo.</p>
 
 {% set pendente = verificacoes|selectattr('status', 'equalto', 'pendente')|list %}
@@ -12,7 +12,7 @@
   <a href="{{ url_for('painel_responsavel') }}"><strong>Ver a ficha</strong></a></div>
 {% else %}
 <div class="ident-aviso">
-  <i class="ti ti-lock" aria-hidden="true"></i>
+  <svg class="ti" aria-hidden="true"><use href="#ti-lock"/></svg>
   <div>
     <strong>O acesso à ficha do idoso fica bloqueado até a casa aprovar sua identidade.</strong>
     {% if pendente %}Seu envio está sendo analisado.
@@ -66,7 +66,7 @@
       </label>
     </fieldset>
     <div class="form-botoes">
-      <button type="submit" class="botao botao-primario"><i class="ti ti-upload" aria-hidden="true"></i> Enviar</button>
+      <button type="submit" class="botao botao-primario"><svg class="ti" aria-hidden="true"><use href="#ti-upload"/></svg> Enviar</button>
     </div>
   </form>
 </section>

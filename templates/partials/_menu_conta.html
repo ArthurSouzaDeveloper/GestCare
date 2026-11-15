@@ -1,0 +1,63 @@
+{# Menu de conta — perfil, notificações, tema e sair.
+   Presente nos dois viewports. "Sair" mora aqui, nunca na navegação primária.
+   `sufixo` distingue as instâncias (topo, sidebar, mobile). #}
+{% set sufixo = sufixo | default('sidebar') %}
+<div class="menu-conta" id="menu-conta-{{ sufixo }}" role="menu" hidden
+     aria-labelledby="conta-{{ sufixo }}">
+
+  <div class="menu-conta-cabecalho">
+    <span class="avatar-usuario">{{ session.get('usuario_nome', '?')[0]|upper }}</span>
+    <div class="menu-conta-identidade">
+      <span class="menu-conta-nome">{{ session.get('usuario_nome', '') }}</span>
+      <span class="menu-conta-perfil">{{
+        {'admin': 'Administrador', 'enfermeiro': 'Enfermeiro',
+         'superadmin': 'Suporte', 'responsavel': 'Família'
+        }.get(session.get('usuario_perfil'), '') }}</span>
+    </div>
+  </div>
+
+  <a href="{{ url_for('meu_perfil') }}" class="menu-conta-item" role="menuitem">
+    <svg class="ti" aria-hidden="true"><use href="#ti-user"/></svg>
+    <span>Meu perfil</span>
+  </a>
+
+  {% if sufixo == 'mobile' %}
+    {% for endpoint, rotulo, icone in destinos_extra | default([]) %}
+    <a href="{{ url_for(endpoint) }}" class="menu-conta-item" role="menuitem">
+      <svg class="ti" aria-hidden="true"><use href="#ti-{{ icone }}"/></svg>
+      <span>{{ rotulo }}</span>
+    </a>
+    {% endfor %}
+  {% endif %}
+
+  {% if session.get('usuario_perfil') in ('enfermeiro', 'admin') %}
+  <button type="button" class="menu-conta-item" role="menuitem"
+          onclick="ativarNotificacoes(false)">
+    <svg class="ti" aria-hidden="true"><use href="#ti-bell"/></svg>
+    <span>Lembretes no celular</span>
+  </button>
+  {% endif %}
+
+  <div class="menu-conta-secao" role="group" aria-label="Tema da interface">
+    <span class="menu-conta-rotulo">Tema</span>
+    <div class="seletor-tema" data-seletor-tema>
+      <button type="button" class="seletor-tema-opcao" data-tema-valor="claro">
+        <svg class="ti" aria-hidden="true"><use href="#ti-sun"/></svg>
+        <span>Claro</span>
+      </button>
+      <button type="button" class="seletor-tema-opcao" data-tema-valor="escuro">
+        <svg class="ti" aria-hidden="true"><use href="#ti-moon"/></svg>
+        <span>Escuro</span>
+      </button>
+      <button type="button" class="seletor-tema-opcao" data-tema-valor="sistema">
+        <svg class="ti" aria-hidden="true"><use href="#ti-device-desktop"/></svg>
+        <span>Sistema</span>
+      </button>
+    </div>
+  </div>
+
+  <a href="{{ url_for('logout') }}" class="menu-conta-item menu-conta-sair" role="menuitem">
+    <svg class="ti" aria-hidden="true"><use href="#ti-logout"/></svg>
+    <span>Sair</span>
+  </a>
+</div>

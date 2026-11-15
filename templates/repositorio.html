@@ -4,14 +4,14 @@
 {% block conteudo %}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;gap:1rem;flex-wrap:wrap">
   <div>
-    <h1 class="titulo-pagina"><i class="ti ti-id" aria-hidden="true"></i> Repositório</h1>
+    <h1 class="titulo-pagina"><svg class="ti" aria-hidden="true"><use href="#ti-id"/></svg> Repositório</h1>
     <p class="subtitulo">Documentos e fotos de rosto para validar idosos e responsáveis</p>
   </div>
-  <a href="#nova" class="botao botao-primario botao-pequeno"><i class="ti ti-upload" aria-hidden="true"></i> Enviar fotos</a>
+  <a href="#nova" class="botao botao-primario botao-pequeno"><svg class="ti" aria-hidden="true"><use href="#ti-upload"/></svg> Enviar fotos</a>
 </div>
 
 <div class="ident-aviso">
-  <i class="ti ti-shield-check" aria-hidden="true"></i>
+  <svg class="ti" aria-hidden="true"><use href="#ti-shield-check"/></svg>
   <div>
     A análise automática roda neste servidor e nenhuma foto é enviada para outra empresa.
     Ela <strong>sinaliza</strong> divergências; quem aprova ou recusa é você.
@@ -62,7 +62,7 @@
 </ul>
 {% else %}
 <div class="vazio">
-  <span class="vazio-icone"><i class="ti ti-id" aria-hidden="true"></i></span>
+  <span class="vazio-icone"><svg class="ti" aria-hidden="true"><use href="#ti-id"/></svg></span>
   <h2 class="vazio-titulo">Nada por aqui</h2>
   <p class="vazio-texto">Nenhuma verificação {% if filtro_status != 'todos' %}com status "{{ filtro_status }}"{% endif %}.</p>
 </div>
@@ -131,7 +131,7 @@
     </fieldset>
 
     <div class="form-botoes">
-      <button type="submit" class="botao botao-primario"><i class="ti ti-upload" aria-hidden="true"></i> Enviar e analisar</button>
+      <button type="submit" class="botao botao-primario"><svg class="ti" aria-hidden="true"><use href="#ti-upload"/></svg> Enviar e analisar</button>
     </div>
   </form>
 </section>

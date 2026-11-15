@@ -1,237 +1,176 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="description" content="Sistema de gestão para instituições de cuidado">
-  <meta name="theme-color" content="#0f4c57">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="GestCare">
-  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-  <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/favicon-32.png') }}">
-  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
-  <title>{% block titulo %}GestCare{% endblock %} - Sistema</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ versao_assets }}">
+{% include 'partials/_cabeca.html' %}
+  <title>{% block titulo %}GestCare{% endblock %} — GestCare</title>
 </head>
 <body data-notificacoes="{{ 'equipe' if session.get('usuario_perfil') in ('enfermeiro', 'admin') else '' }}">
+
+{% include 'partials/_icones.html' %}
 
 {% set perfil = session.get('usuario_perfil') %}
 {% set iniciais = session.get('usuario_nome', '?')[0]|upper %}
 
+{#
+  MATRIZ PERFIL × DESTINO — fonte única.
+  A sidebar e a navegação inferior leem desta mesma lista, então as duas
+  não podem divergir. Máximo de 4 destinos + Conta = 5 itens no mobile.
+  Ações de conta (perfil, notificações, tema, sair) ficam no menu do avatar,
+  nunca na navegação primária.
+#}
+{% if perfil == 'superadmin' %}
+  {% set destinos = [
+      ('listar_casas', 'Casas', 'building-community')
+  ] %}
+{% elif perfil == 'responsavel' %}
+  {% set destinos = [
+      ('painel_responsavel', 'Ficha', 'clipboard-list'),
+      ('verificacao_responsavel', 'Identidade', 'id')
+  ] %}
+{% elif perfil == 'admin' %}
+  {% set destinos = [
+      ('index', 'Pacientes', 'users'),
+      ('agenda_diaria', 'Agenda', 'calendar'),
+      ('novo_paciente', 'Cadastrar', 'plus'),
+      ('listar_usuarios', 'Usuários', 'user-cog')
+  ] %}
+{% elif session.get('usuario_nome') %}
+  {% set destinos = [
+      ('index', 'Pacientes', 'users'),
+      ('agenda_diaria', 'Agenda', 'calendar'),
+      ('novo_paciente', 'Cadastrar', 'plus')
+  ] %}
+{% else %}
+  {% set destinos = [] %}
+{% endif %}
+{# Destinos de gestão: entram na sidebar e, no celular, no menu de conta
+   (a barra inferior já está no limite de 5 itens). #}
+{% set destinos_extra = [('repositorio', 'Repositório', 'id')] if perfil == 'admin' else [] %}
+
+<a class="pular-para-conteudo" href="#conteudo">Pular para o conteúdo</a>
+
 <div class="app-shell">
 
-  {% if perfil == 'responsavel' %}
-    <!-- ── TOPBAR — Portal do Responsável (sem sidebar) ────── -->
-    <div class="main-area">
-      <header class="topbar-familia">
-        <div class="cabecalho-container">
-          <a href="{{ url_for('painel_responsavel') }}" class="logo">
-            <span class="logo-mark"><i class="ti ti-heartbeat" aria-hidden="true"></i></span>
-            <div>
-              <div>GestCare</div>
-              <div class="familia-etiqueta">Área da Família{% if session.get('casa_nome') %} · {{ session.get('casa_nome') }}{% endif %}</div>
-            </div>
-          </a>
-          <div style="display:flex;align-items:center;gap:14px">
-            <a href="{{ url_for('verificacao_responsavel') }}" class="sidebar-item" style="width:auto;color:rgba(255,255,255,.85);padding:8px 10px">
-              <i class="ti ti-id" aria-hidden="true"></i> Identidade
-            </a>
-            <a href="{{ url_for('logout') }}" class="sidebar-item" style="width:auto;color:rgba(255,255,255,.85);padding:8px 10px">
-              <i class="ti ti-logout" aria-hidden="true"></i> Sair
-            </a>
-            <div class="avatar-usuario">{{ iniciais }}</div>
-          </div>
-        </div>
-      </header>
-
-  {% else %}
-    <!-- ── SIDEBAR — Equipe / Superadmin ────────────────────── -->
+  {% if perfil != 'responsavel' %}
+    <!-- ── SIDEBAR — equipe e superadmin, a partir de 768px ───────────── -->
     <aside class="sidebar">
       <div class="sidebar-topo">
-        <span class="logo-mark"><i class="ti ti-heartbeat" aria-hidden="true"></i></span>
-        <div>
-          <div class="logo" style="font-size:1.05rem">GestCare</div>
+        <span class="logo-mark"><svg class="ti" aria-hidden="true"><use href="#ti-heartbeat"/></svg></span>
+        <div class="sidebar-identidade">
+          <span class="logo">GestCare</span>
           {% if session.get('casa_nome') %}
             <span class="sidebar-etiqueta">{{ session.get('casa_nome') }}</span>
           {% endif %}
         </div>
       </div>
 
-      <nav class="sidebar-nav">
-        {% if perfil == 'superadmin' %}
-          <a href="{{ url_for('listar_casas') }}" class="sidebar-item {% if request.endpoint == 'listar_casas' %}ativo{% endif %}">
-            <i class="ti ti-building-community" aria-hidden="true"></i> Casas
+      <nav class="sidebar-nav" aria-label="Navegação principal">
+        {% for endpoint, rotulo, icone in destinos + destinos_extra %}
+          <a href="{{ url_for(endpoint) }}"
+             class="sidebar-item {% if request.endpoint in (endpoint, endpoint ~ "_detalhe") %}ativo{% endif %}"
+             {% if request.endpoint in (endpoint, endpoint ~ "_detalhe") %}aria-current="page"{% endif %}>
+            <svg class="ti" aria-hidden="true"><use href="#ti-{{ icone }}"/></svg>
+            <span>{{ rotulo }}</span>
           </a>
-        {% elif session.get('usuario_nome') %}
-          <a href="{{ url_for('index') }}" class="sidebar-item {% if request.endpoint == 'index' %}ativo{% endif %}">
-            <i class="ti ti-users" aria-hidden="true"></i> Pacientes
-          </a>
-          <a href="{{ url_for('agenda_diaria') }}" class="sidebar-item {% if request.endpoint == 'agenda_diaria' %}ativo{% endif %}">
-            <i class="ti ti-calendar" aria-hidden="true"></i> Agenda
-          </a>
-          <a href="{{ url_for('novo_paciente') }}" class="sidebar-item {% if request.endpoint == 'novo_paciente' %}ativo{% endif %}">
-            <i class="ti ti-plus" aria-hidden="true"></i> Novo Cadastro
-          </a>
-          {% if perfil == 'admin' %}
-          <a href="{{ url_for('listar_usuarios') }}" class="sidebar-item {% if request.endpoint == 'listar_usuarios' %}ativo{% endif %}">
-            <i class="ti ti-user-cog" aria-hidden="true"></i> Usuários
-          </a>
-          <a href="{{ url_for('repositorio') }}" class="sidebar-item {% if request.endpoint in ('repositorio', 'repositorio_detalhe') %}ativo{% endif %}">
-            <i class="ti ti-id" aria-hidden="true"></i> Repositório
-          </a>
-          {% endif %}
-        {% endif %}
-        <a href="{{ url_for('meu_perfil') }}" class="sidebar-item {% if request.endpoint == 'meu_perfil' %}ativo{% endif %}">
-          <i class="ti ti-user" aria-hidden="true"></i> Meu Perfil
-        </a>
+        {% endfor %}
       </nav>
 
       <div class="sidebar-rodape">
-        {% if perfil in ('enfermeiro', 'admin') %}
-        <button id="btn-notificacoes" type="button" class="sidebar-item" onclick="ativarNotificacoes(false)" title="Ativar lembretes de antibiótico no celular">
-          <i class="ti ti-bell" aria-hidden="true"></i> Notificações
+        <button type="button" class="sidebar-item sidebar-conta" id="conta-sidebar"
+                aria-haspopup="menu" aria-expanded="false" aria-controls="menu-conta-sidebar">
+          <span class="avatar-usuario avatar-sm sobre-escuro">{{ iniciais }}</span>
+          <span class="sidebar-conta-nome">{{ session.get('usuario_nome', '') }}</span>
+          <svg class="ti sidebar-conta-seta" aria-hidden="true"><use href="#ti-chevron-down"/></svg>
         </button>
-        {% endif %}
-        <a href="{{ url_for('logout') }}" class="sidebar-item">
-          <i class="ti ti-logout" aria-hidden="true"></i> Sair
-        </a>
+        {% include 'partials/_menu_conta.html' with context %}
       </div>
     </aside>
-
-    <div class="main-area">
-      <!-- Barra mobile (logo, escondida no desktop) -->
-      <header class="cabecalho cabecalho-mobile">
-        <div class="cabecalho-container">
-          {% if perfil == 'superadmin' %}
-            <a href="{{ url_for('listar_casas') }}" class="logo">
-              <span class="logo-mark"><i class="ti ti-heartbeat" aria-hidden="true"></i></span>
-              <span>GestCare</span>
-            </a>
-          {% else %}
-            <a href="{{ url_for('index') }}" class="logo">
-              <span class="logo-mark"><i class="ti ti-heartbeat" aria-hidden="true"></i></span>
-              <span>GestCare</span>
-            </a>
-          {% endif %}
-          <div class="avatar-usuario" style="background:rgba(255,255,255,.16);color:#fff">{{ iniciais }}</div>
-        </div>
-      </header>
-
-      <!-- Barra desktop (avatar) -->
-      <div class="topo-desktop">
-        <a href="{{ url_for('meu_perfil') }}" title="Meu Perfil">
-          <div class="avatar-usuario">{{ iniciais }}</div>
-        </a>
-      </div>
   {% endif %}
 
-      <main class="conteudo">
-        {% with mensagens = get_flashed_messages(with_categories=true) %}
-          {% if mensagens %}
-            {% for categoria, msg in mensagens %}
-              <div class="alerta alerta-{{ categoria }}">{{ msg }}</div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
-        {% block conteudo %}{% endblock %}
-      </main>
+  <div class="main-area">
 
-      <footer class="rodape">
-        <p>GestCare — Sistema de Gestão</p>
-      </footer>
-    </div>
+    <!-- ── BARRA DE TOPO ─────────────────────────────────────────────── -->
+    <header class="topo {% if perfil == 'responsavel' %}topo-familia{% endif %}">
+      <div class="topo-interno">
+        {% if perfil == 'responsavel' %}
+          <a href="{{ url_for('painel_responsavel') }}" class="logo-link">
+            <span class="logo-mark"><svg class="ti" aria-hidden="true"><use href="#ti-heartbeat"/></svg></span>
+            <span class="logo-texto">
+              <span class="logo">GestCare</span>
+              <span class="logo-contexto">Área da Família{% if session.get('casa_nome') %} · {{ session.get('casa_nome') }}{% endif %}</span>
+            </span>
+          </a>
+        {% else %}
+          <a href="{{ url_for(destinos[0][0]) if destinos else url_for('meu_perfil') }}" class="logo-link so-mobile">
+            <span class="logo-mark"><svg class="ti" aria-hidden="true"><use href="#ti-heartbeat"/></svg></span>
+            <span class="logo-texto"><span class="logo">GestCare</span></span>
+          </a>
+          <span class="topo-espaco"></span>
+        {% endif %}
+
+        <div class="conta-wrap so-desktop">
+          <button type="button" class="botao-conta" id="conta-topo"
+                  aria-haspopup="menu" aria-expanded="false" aria-controls="menu-conta-topo">
+            <span class="avatar-usuario">{{ iniciais }}</span>
+            <span class="so-leitor-tela">Conta de {{ session.get('usuario_nome', 'usuário') }}</span>
+            <svg class="ti" aria-hidden="true"><use href="#ti-chevron-down"/></svg>
+          </button>
+          {% with sufixo = 'topo' %}{% include 'partials/_menu_conta.html' %}{% endwith %}
+        </div>
+      </div>
+    </header>
+
+    <main class="conteudo" id="conteudo" tabindex="-1">
+      {% with mensagens = get_flashed_messages(with_categories=true) %}
+        {% if mensagens %}
+          <div class="pilha-alertas" role="status" aria-live="polite">
+            {% for categoria, msg in mensagens %}
+              {% set tom = {'sucesso': 'sucesso', 'erro': 'erro', 'alerta': 'alerta', 'info': 'info'}.get(categoria, 'info') %}
+              <div class="alerta alerta-{{ tom }}">
+                <svg class="ti alerta-icone" aria-hidden="true"><use href="#ti-{{
+                  {'sucesso':'circle-check','erro':'alert-hexagon','alerta':'alert-triangle','info':'info-circle'}[tom] }}"/></svg>
+                <span>{{ msg }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+      {% block conteudo %}{% endblock %}
+    </main>
+
+    <footer class="rodape">
+      <p>
+        {% if session.get('casa_nome') %}{{ session.get('casa_nome') }} · {% endif %}GestCare
+      </p>
+    </footer>
+  </div>
 </div>
 
-{% if perfil == 'responsavel' %}
-  <nav class="nav-bottom">
-    <a href="{{ url_for('painel_responsavel') }}" class="nav-bottom-item {% if request.endpoint == 'painel_responsavel' %}ativo{% endif %}">
-      <span class="nav-bottom-icon"><i class="ti ti-clipboard-list" aria-hidden="true"></i></span>
-      <span>Ficha</span>
-    </a>
-    <a href="{{ url_for('verificacao_responsavel') }}" class="nav-bottom-item {% if request.endpoint == 'verificacao_responsavel' %}ativo{% endif %}">
-      <span class="nav-bottom-icon"><i class="ti ti-id" aria-hidden="true"></i></span>
-      <span>Identidade</span>
-    </a>
-    <a href="{{ url_for('logout') }}" class="nav-bottom-item">
-      <span class="nav-bottom-icon"><i class="ti ti-logout" aria-hidden="true"></i></span>
-      <span>Sair</span>
-    </a>
-  </nav>
-{% elif perfil == 'superadmin' %}
-  <nav class="nav-bottom">
-    <a href="{{ url_for('listar_casas') }}"
-       class="nav-bottom-item {% if request.endpoint == 'listar_casas' %}ativo{% endif %}">
-      <span class="nav-bottom-icon"><i class="ti ti-building-community" aria-hidden="true"></i></span>
-      <span>Casas</span>
-    </a>
-    <a href="{{ url_for('meu_perfil') }}"
-       class="nav-bottom-item {% if request.endpoint == 'meu_perfil' %}ativo{% endif %}">
-      <span class="nav-bottom-icon"><i class="ti ti-user" aria-hidden="true"></i></span>
-      <span>Perfil</span>
-    </a>
-    <a href="{{ url_for('logout') }}" class="nav-bottom-item">
-      <span class="nav-bottom-icon"><i class="ti ti-logout" aria-hidden="true"></i></span>
-      <span>Sair</span>
-    </a>
-  </nav>
-{% elif session.get('usuario_nome') %}
-  <nav class="nav-bottom">
-    <a href="{{ url_for('index') }}"
-       class="nav-bottom-item {% if request.endpoint == 'index' %}ativo{% endif %}">
-      <span class="nav-bottom-icon"><i class="ti ti-users" aria-hidden="true"></i></span>
-      <span>Pacientes</span>
-    </a>
-    {% if perfil == 'admin' %}
-    <a href="{{ url_for('listar_usuarios') }}"
-       class="nav-bottom-item {% if request.endpoint == 'listar_usuarios' %}ativo{% endif %}">
-      <span class="nav-bottom-icon"><i class="ti ti-user-cog" aria-hidden="true"></i></span>
-      <span>Usuários</span>
-    </a>
-    <a href="{{ url_for('repositorio') }}"
-       class="nav-bottom-item {% if request.endpoint in ('repositorio', 'repositorio_detalhe') %}ativo{% endif %}">
-      <span class="nav-bottom-icon"><i class="ti ti-id" aria-hidden="true"></i></span>
-      <span>Repositório</span>
-    </a>
-    {% else %}
-    <a href="{{ url_for('agenda_diaria') }}"
-       class="nav-bottom-item {% if request.endpoint == 'agenda_diaria' %}ativo{% endif %}">
-      <span class="nav-bottom-icon"><i class="ti ti-calendar" aria-hidden="true"></i></span>
-      <span>Agenda</span>
-    </a>
-    {% endif %}
-    <a href="{{ url_for('novo_paciente') }}"
-       class="nav-bottom-item {% if request.endpoint == 'novo_paciente' %}ativo{% endif %}">
-      <span class="nav-bottom-icon"><i class="ti ti-plus" aria-hidden="true"></i></span>
-      <span>Cadastrar</span>
-    </a>
-    <button type="button" id="btn-notificacoes-mobile" class="nav-bottom-item"
-            style="background:none;border:none" onclick="ativarNotificacoes(false)">
-      <span class="nav-bottom-icon"><i class="ti ti-bell" aria-hidden="true"></i></span>
-      <span>Avisos</span>
+{% if destinos %}
+  <!-- ── NAVEGAÇÃO INFERIOR — mesmos destinos da sidebar, + Conta ────── -->
+  <nav class="nav-bottom" aria-label="Navegação principal">
+    {% for endpoint, rotulo, icone in destinos %}
+      <a href="{{ url_for(endpoint) }}"
+         class="nav-bottom-item {% if request.endpoint == endpoint %}ativo{% endif %}"
+         {% if request.endpoint == endpoint %}aria-current="page"{% endif %}>
+        <svg class="ti nav-bottom-icon" aria-hidden="true"><use href="#ti-{{ icone }}"/></svg>
+        <span>{{ rotulo }}</span>
+      </a>
+    {% endfor %}
+    <button type="button" class="nav-bottom-item" id="conta-mobile"
+            aria-haspopup="menu" aria-expanded="false" aria-controls="menu-conta-mobile">
+      <span class="avatar-usuario avatar-xs">{{ iniciais }}</span>
+      <span>Conta</span>
     </button>
-    <a href="{{ url_for('meu_perfil') }}"
-       class="nav-bottom-item {% if request.endpoint == 'meu_perfil' %}ativo{% endif %}">
-      <span class="nav-bottom-icon"><i class="ti ti-user" aria-hidden="true"></i></span>
-      <span>Perfil</span>
-    </a>
-    <a href="{{ url_for('logout') }}" class="nav-bottom-item">
-      <span class="nav-bottom-icon"><i class="ti ti-logout" aria-hidden="true"></i></span>
-      <span>Sair</span>
-    </a>
   </nav>
+  {% with sufixo = 'mobile' %}{% include 'partials/_menu_conta.html' %}{% endwith %}
 {% endif %}
 
 <script>
 // Injeta token CSRF em todos os formulários POST automaticamente
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
   var token = '{{ csrf_token() }}';
-  document.querySelectorAll('form[method="POST"], form[method="post"]').forEach(function(f) {
+  document.querySelectorAll('form[method="POST"], form[method="post"]').forEach(function (f) {
     if (!f.querySelector('input[name="csrf_token"]')) {
       var inp = document.createElement('input');
       inp.type = 'hidden'; inp.name = 'csrf_token'; inp.value = token;
@@ -240,7 +179,7 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 </script>
-<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}?v={{ versao_assets }}"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

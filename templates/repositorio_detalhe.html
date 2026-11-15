@@ -4,7 +4,7 @@
 {% block conteudo %}
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;gap:1rem;flex-wrap:wrap">
   <div>
-    <h1 class="titulo-pagina"><i class="ti ti-id" aria-hidden="true"></i> {{ pessoa.nome or '(pessoa removida)' }}</h1>
+    <h1 class="titulo-pagina"><svg class="ti" aria-hidden="true"><use href="#ti-id"/></svg> {{ pessoa.nome or '(pessoa removida)' }}</h1>
     <p class="subtitulo">
       {% if v.tipo_pessoa == 'paciente' %}Idoso{% else %}Responsável{% endif %}
       · enviado em {{ v.enviado_em[:16] }}{% if nomes.get(v.enviado_por) %} por {{ nomes[v.enviado_por] }}{% endif %}
@@ -55,7 +55,7 @@
   </div>
 
   <div class="ident-aviso" style="margin-top:1rem">
-    <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+    <svg class="ti" aria-hidden="true"><use href="#ti-alert-triangle"/></svg>
     <div>
       A comparação é um indício, não prova. Ela erra com foto antiga de documento, envelhecimento,
       óculos, pouca luz e documento plastificado com reflexo. Ela também <strong>não prova que a foto
@@ -89,8 +89,8 @@
       {# app.js desabilita o botão de envio no submit, e botão desabilitado não manda
          name/value; por isso a escolha vai num campo oculto preenchido no clique. #}
       <input type="hidden" name="decisao" value="">
-      <button type="submit" data-decisao="aprovado" onclick="this.form.decisao.value='aprovado'" class="botao botao-primario"><i class="ti ti-check" aria-hidden="true"></i> Aprovar</button>
-      <button type="submit" data-decisao="recusado" onclick="this.form.decisao.value='recusado'" class="botao botao-perigo"><i class="ti ti-x" aria-hidden="true"></i> Recusar</button>
+      <button type="submit" data-decisao="aprovado" onclick="this.form.decisao.value='aprovado'" class="botao botao-primario"><svg class="ti" aria-hidden="true"><use href="#ti-check"/></svg> Aprovar</button>
+      <button type="submit" data-decisao="recusado" onclick="this.form.decisao.value='recusado'" class="botao botao-perigo"><svg class="ti" aria-hidden="true"><use href="#ti-x"/></svg> Recusar</button>
     </div>
   </form>
 </div>
@@ -104,7 +104,7 @@
   </ul>
   <form method="POST" action="{{ url_for('repositorio_excluir', verificacao_id=v.id) }}"
         onsubmit="return confirm('Excluir as duas fotos e esta verificação? Não dá para desfazer.');" style="margin-top:1rem">
-    <button type="submit" class="botao botao-perigo botao-pequeno ident-excluir"><i class="ti ti-trash" aria-hidden="true"></i> Excluir fotos (pedido da pessoa ou fim do vínculo)</button>
+    <button type="submit" class="botao botao-perigo botao-pequeno ident-excluir"><svg class="ti" aria-hidden="true"><use href="#ti-trash"/></svg> Excluir fotos (pedido da pessoa ou fim do vínculo)</button>
   </form>
 </div>
 {% endblock %}

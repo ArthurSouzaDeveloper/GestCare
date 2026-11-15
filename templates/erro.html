@@ -2,10 +2,44 @@
 {% block titulo %}Erro {{ codigo }}{% endblock %}
 
 {% block conteudo %}
-<div style="text-align:center;padding:4rem 1rem">
-  <div style="font-size:4rem;font-weight:800;color:var(--cor-primaria-escura);margin-bottom:.5rem">{{ codigo }}</div>
-  <p style="font-size:1.1rem;color:var(--cor-texto-suave);margin-bottom:2rem">{{ mensagem }}</p>
-  <a href="{{ url_for('index') if session.get('usuario_id') else url_for('login') }}"
-     class="botao botao-primario">Voltar ao início</a>
+{% set explicacao = {
+  403: 'Seu perfil não tem acesso a esta tela. Se você precisa dela para trabalhar, peça ao administrador da casa para ajustar sua permissão.',
+  404: 'Esta página não existe, ou o registro foi removido. Links antigos de paciente deixam de funcionar quando o cadastro é excluído.',
+  500: 'Algo falhou do nosso lado ao montar esta página. Nenhum dado que você tenha enviado foi perdido.'
+} %}
+
+<div class="pagina-erro">
+  <p class="pagina-erro-codigo">{{ codigo }}</p>
+  <h1 class="titulo-pagina">{{ mensagem }}</h1>
+  <p class="pagina-erro-texto">
+    {{ explicacao.get(codigo, 'A página não pôde ser aberta. Volte e tente novamente.') }}
+  </p>
+
+  <div class="pagina-acoes">
+    {% if session.get('usuario_id') %}
+      <a href="{{ url_for('index') if session.get('usuario_perfil') not in ('superadmin', 'responsavel')
+                else (url_for('listar_casas') if session.get('usuario_perfil') == 'superadmin'
+                else url_for('painel_responsavel')) }}"
+         class="botao botao-primario">
+        <svg class="ti" aria-hidden="true"><use href="#ti-home"/></svg> Voltar ao início
+      </a>
+      {% if session.get('usuario_perfil') in ('enfermeiro', 'admin') %}
+      <a href="{{ url_for('agenda_diaria') }}" class="botao botao-secundario">
+        <svg class="ti" aria-hidden="true"><use href="#ti-calendar"/></svg> Agenda do dia
+      </a>
+      {% endif %}
+    {% else %}
+      <a href="{{ url_for('login') }}" class="botao botao-primario">
+        <svg class="ti" aria-hidden="true"><use href="#ti-lock"/></svg> Entrar
+      </a>
+    {% endif %}
+  </div>
+
+  {% if codigo == 500 %}
+  <p class="pagina-erro-rodape">
+    Se acontecer de novo na mesma tela, avise o administrador da casa com a hora
+    aproximada — isso é o que permite localizar a falha no registro do sistema.
+  </p>
+  {% endif %}
 </div>
 {% endblock %}

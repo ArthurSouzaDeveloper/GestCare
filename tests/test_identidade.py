@@ -331,13 +331,25 @@ def test_excluir_apaga_arquivos(cliente):
     assert linhas("SELECT COUNT(*) n FROM acessos_identidade WHERE acao = 'excluir'")[0]['n'] == 1
 
 
-def test_excluir_responsavel_apaga_fotos_dele(cliente):
+def test_excluir_responsavel_preserva_fotos_e_apagar_definitivo_remove(cliente):
     entrar(cliente, 3)
     cliente.post('/responsavel/verificacao', data=fotos(aceite_termo='sim'),
                  content_type='multipart/form-data')
     entrar(cliente, 1)
+    # exclusão comum é reversível: as fotos ficam, mas o responsável sai das listas
     cliente.post('/usuarios/3/excluir', data={'csrf_token': 'tok'})
+    assert len(os.listdir(gc.IDENTIDADE_FOLDER)) == 2
+    assert linhas('SELECT revogado_em FROM consentimentos_biometria')[0]['revogado_em'] is None
+    html = cliente.get('/repositorio').get_data(as_text=True)
+    assert 'value="responsavel:3"' not in html  # não dá para enviar fotos para excluído
+    # restaurar não perde nada
+    cliente.post('/usuarios/3/restaurar', data={'csrf_token': 'tok'})
+    assert len(os.listdir(gc.IDENTIDADE_FOLDER)) == 2
+    # apagar de vez (LGPD): fotos somem e o consentimento é revogado
+    cliente.post('/usuarios/3/excluir', data={'csrf_token': 'tok'})
+    cliente.post('/usuarios/3/apagar', data={'csrf_token': 'tok'})
     assert os.listdir(gc.IDENTIDADE_FOLDER) == []
+    assert linhas('SELECT COUNT(*) n FROM verificacoes_identidade')[0]['n'] == 0
     assert linhas('SELECT revogado_em FROM consentimentos_biometria')[0]['revogado_em']
 
 
