@@ -60,6 +60,40 @@
   <input class="busca-input" type="search" id="busca"
          placeholder="Buscar paciente..." autocomplete="off">
 </div>
+
+<div class="filtros-barra">
+  <div class="filtro-grupo">
+    <label class="filtro-label" for="filtro-quarto">Quarto</label>
+    <select class="filtro-select" id="filtro-quarto">
+      <option value="">Todos</option>
+      {% for q in quartos_lista %}<option value="{{ q|lower }}">Quarto {{ q }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="filtro-grupo">
+    <label class="filtro-label" for="filtro-condicao">Condição</label>
+    <select class="filtro-select" id="filtro-condicao">
+      <option value="">Todas</option>
+      {% for c in condicoes_lista %}<option value="{{ c|lower }}">{{ c }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="filtro-grupo">
+    <label class="filtro-label" for="filtro-idade">Idade</label>
+    <select class="filtro-select" id="filtro-idade">
+      <option value="">Todas</option>
+      <option value="0-69">Até 69 anos</option>
+      <option value="70-79">70 a 79 anos</option>
+      <option value="80-89">80 a 89 anos</option>
+      <option value="90-200">90 anos ou mais</option>
+    </select>
+  </div>
+</div>
+
+<div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap">
+  <p class="filtro-resumo" id="filtro-resumo"></p>
+  <button type="button" class="filtro-limpar" id="filtro-limpar" style="display:none">
+    <i class="ti ti-x" aria-hidden="true"></i> Limpar filtros
+  </button>
+</div>
 {% endif %}
 
 {% if pacientes %}
@@ -75,7 +109,10 @@
     {% for p in pacientes %}
     <a href="{{ url_for('detalhe_paciente', paciente_id=p.id) }}"
        class="card-paciente"
-       data-nome="{{ p.nome|lower }}">
+       data-nome="{{ p.nome|lower }}"
+       data-quarto="{{ (p.quarto or '')|lower }}"
+       data-condicoes="{{ (p.condicoes_lista|join('|'))|lower }}"
+       data-idade="{{ p.idade if p.idade is not none else '' }}">
       <!-- Avatar com inicial do nome -->
       <div class="card-avatar">{{ p.nome[0]|upper }}</div>
       <div class="card-corpo">
@@ -99,11 +136,11 @@
     {% endfor %}
   </div>
 
-  <!-- Aparece quando a busca não encontra nada -->
+  <!-- Aparece quando a busca ou os filtros não encontram nada -->
   <div id="busca-vazio" style="display:none" class="vazio">
     <span class="vazio-icone"><i class="ti ti-search" aria-hidden="true"></i></span>
     <h2 class="vazio-titulo">Nenhum resultado</h2>
-    <p class="vazio-texto">Tente outro nome.</p>
+    <p class="vazio-texto">Tente outro nome ou limpe os filtros.</p>
   </div>
 
 {% else %}
@@ -124,23 +161,55 @@
 
 {% block scripts %}
 <script>
-// Filtro de busca client-side — sem recarregar a página
-const input  = document.getElementById('busca');
-const cards  = document.querySelectorAll('.card-paciente');
-const semRes = document.getElementById('busca-vazio');
+// Busca e filtros client-side — sem recarregar a página
+const busca    = document.getElementById('busca');
+const fQuarto  = document.getElementById('filtro-quarto');
+const fCond    = document.getElementById('filtro-condicao');
+const fIdade   = document.getElementById('filtro-idade');
+const cards    = document.querySelectorAll('.card-paciente');
+const semRes   = document.getElementById('busca-vazio');
+const resumo   = document.getElementById('filtro-resumo');
+const btnLimpar = document.getElementById('filtro-limpar');
+const selects  = [fQuarto, fCond, fIdade].filter(Boolean);
 
-if (input) {
-  input.addEventListener('input', () => {
-    const q = input.value.toLowerCase().trim();
-    let visiveis = 0;
-    cards.forEach(card => {
-      const nome = card.dataset.nome || '';
-      const mostrar = !q || nome.includes(q);
-      card.style.display = mostrar ? '' : 'none';
-      if (mostrar) visiveis++;
-    });
-    if (semRes) semRes.style.display = (q && visiveis === 0) ? '' : 'none';
+function aplicar() {
+  const q      = (busca?.value || '').toLowerCase().trim();
+  const quarto = fQuarto?.value || '';
+  const cond   = fCond?.value || '';
+  const idade  = fIdade?.value || '';
+  const [idadeMin, idadeMax] = idade ? idade.split('-').map(Number) : [null, null];
+
+  let visiveis = 0;
+  cards.forEach(card => {
+    const d = card.dataset;
+    let ok = !q || (d.nome || '').includes(q);
+    if (ok && quarto) ok = (d.quarto || '') === quarto;
+    if (ok && cond)   ok = (d.condicoes || '').split('|').includes(cond);
+    if (ok && idade) {
+      const n = parseInt(d.idade, 10);
+      ok = !isNaN(n) && n >= idadeMin && n <= idadeMax;
+    }
+    card.style.display = ok ? '' : 'none';
+    if (ok) visiveis++;
   });
+
+  const temFiltro = !!(q || quarto || cond || idade);
+  if (semRes) semRes.style.display = (temFiltro && visiveis === 0) ? '' : 'none';
+  if (btnLimpar) btnLimpar.style.display = temFiltro ? '' : 'none';
+  if (resumo) {
+    resumo.textContent = temFiltro
+      ? `${visiveis} de ${cards.length} paciente${cards.length !== 1 ? 's' : ''}`
+      : '';
+  }
+  selects.forEach(s => s.classList.toggle('ativo', !!s.value));
 }
+
+busca?.addEventListener('input', aplicar);
+selects.forEach(s => s.addEventListener('change', aplicar));
+btnLimpar?.addEventListener('click', () => {
+  if (busca) busca.value = '';
+  selects.forEach(s => s.value = '');
+  aplicar();
+});
 </script>
 {% endblock %}

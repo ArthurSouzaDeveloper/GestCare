@@ -99,6 +99,18 @@ function mostrarToast(mensagem, tipo) {
   toast._t = setTimeout(() => toast.classList.remove('visivel'), 3000);
 }
 
+// Valida CPF pelos dois dígitos verificadores (mesma regra do servidor)
+function cpfValido(valor) {
+  const cpf = (valor || '').replace(/\D/g, '');
+  if (cpf.length !== 11 || /^(\d)\1{10}$/.test(cpf)) return false;
+  for (let t = 9; t <= 10; t++) {
+    let soma = 0;
+    for (let i = 0; i < t; i++) soma += parseInt(cpf[i], 10) * (t + 1 - i);
+    if ((soma * 10) % 11 % 10 !== parseInt(cpf[t], 10)) return false;
+  }
+  return true;
+}
+
 // ── INIT ─────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -109,6 +121,32 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('[data-formato="telefone"]').forEach(el =>
     el.addEventListener('input', () => formatarTelefone(el))
   );
+
+  // Bloqueia envio de CPF inválido antes de ir ao servidor
+  document.querySelectorAll('input[name="cpf"]').forEach(campo => {
+    const checar = () => {
+      const v = campo.value.trim();
+      campo.setCustomValidity(!v || cpfValido(v) ? '' : 'CPF inválido. Confira os números digitados.');
+    };
+    campo.addEventListener('input', checar);
+    campo.addEventListener('blur', checar);
+  });
+
+  // Mostrar/ocultar CPF nas fichas
+  document.querySelectorAll('.cpf-campo').forEach(campo => {
+    const btn   = campo.querySelector('.cpf-toggle');
+    const valor = campo.querySelector('.cpf-valor');
+    if (!btn || !valor) return;
+    const oculto = valor.textContent;
+    const aberto = campo.dataset.cpfAberto || '';
+    let visivel = false;
+    btn.addEventListener('click', () => {
+      visivel = !visivel;
+      valor.textContent = visivel ? aberto : oculto;
+      btn.querySelector('i').className = visivel ? 'ti ti-eye-off' : 'ti ti-eye';
+      btn.setAttribute('aria-label', visivel ? 'Ocultar CPF' : 'Mostrar CPF');
+    });
+  });
 
   // Alertas flash somem depois de 5 segundos
   setTimeout(() => {

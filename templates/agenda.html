@@ -11,12 +11,46 @@
 </div>
 
 {% if agenda %}
+<div class="filtros-barra">
+  <div class="filtro-grupo">
+    <label class="filtro-label" for="filtro-quarto">Quarto</label>
+    <select class="filtro-select" id="filtro-quarto">
+      <option value="">Todos</option>
+      {% for q in quartos_lista %}<option value="{{ q|lower }}">Quarto {{ q }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="filtro-grupo">
+    <label class="filtro-label" for="filtro-turno">Turno</label>
+    <select class="filtro-select" id="filtro-turno">
+      <option value="">Todos</option>
+      <option value="6-11">Manhã (06h às 12h)</option>
+      <option value="12-17">Tarde (12h às 18h)</option>
+      <option value="18-5">Noite (18h às 06h)</option>
+    </select>
+  </div>
+</div>
+
+<div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap">
+  <p class="filtro-resumo" id="filtro-resumo"></p>
+  <button type="button" class="filtro-limpar" id="filtro-limpar" style="display:none">
+    <i class="ti ti-x" aria-hidden="true"></i> Limpar filtros
+  </button>
+</div>
+
+<div id="agenda-vazio" style="display:none" class="vazio">
+  <span class="vazio-icone"><i class="ti ti-filter-off" aria-hidden="true"></i></span>
+  <h2 class="vazio-titulo">Nenhuma medicação neste filtro</h2>
+  <p class="vazio-texto">Tente outro quarto ou turno.</p>
+</div>
+{% endif %}
+
+{% if agenda %}
   {% for horario, itens in agenda.items() %}
-  <div class="agenda-horario">
+  <div class="agenda-horario" data-horario="{{ horario[:2] }}">
     <div class="agenda-horario-titulo"><i class="ti ti-clock" aria-hidden="true"></i> {{ horario[:5] }}</div>
     <div class="agenda-lista">
       {% for item in itens %}
-      <div class="agenda-item">
+      <div class="agenda-item" data-quarto="{{ (item.quarto or '')|lower }}">
         <div>
           <div class="agenda-paciente">{{ item.paciente }}</div>
           {% if item.quarto %}
@@ -61,4 +95,62 @@
     <a href="{{ url_for('index') }}" class="botao botao-primario">Ver Pacientes</a>
   </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Filtro de quarto e turno — sem recarregar a página
+const fQuarto   = document.getElementById('filtro-quarto');
+const fTurno    = document.getElementById('filtro-turno');
+const blocos    = document.querySelectorAll('.agenda-horario');
+const itens     = document.querySelectorAll('.agenda-item');
+const vazio     = document.getElementById('agenda-vazio');
+const resumo    = document.getElementById('filtro-resumo');
+const btnLimpar = document.getElementById('filtro-limpar');
+const selects   = [fQuarto, fTurno].filter(Boolean);
+
+function noTurno(hora, turno) {
+  if (!turno) return true;
+  const [ini, fim] = turno.split('-').map(Number);
+  // A noite atravessa a meia-noite (18h-05h), por isso o OU
+  return ini <= fim ? (hora >= ini && hora <= fim) : (hora >= ini || hora <= fim);
+}
+
+function aplicar() {
+  const quarto = fQuarto?.value || '';
+  const turno  = fTurno?.value || '';
+  let visiveis = 0;
+
+  blocos.forEach(bloco => {
+    const hora = parseInt(bloco.dataset.horario, 10);
+    const horaOk = noTurno(hora, turno);
+    let nesteBloco = 0;
+
+    bloco.querySelectorAll('.agenda-item').forEach(item => {
+      const ok = horaOk && (!quarto || (item.dataset.quarto || '') === quarto);
+      item.style.display = ok ? '' : 'none';
+      if (ok) nesteBloco++;
+    });
+
+    bloco.style.display = nesteBloco > 0 ? '' : 'none';
+    visiveis += nesteBloco;
+  });
+
+  const temFiltro = !!(quarto || turno);
+  if (vazio) vazio.style.display = (temFiltro && visiveis === 0) ? '' : 'none';
+  if (btnLimpar) btnLimpar.style.display = temFiltro ? '' : 'none';
+  if (resumo) {
+    resumo.textContent = temFiltro
+      ? `${visiveis} de ${itens.length} ${itens.length === 1 ? 'medicação' : 'medicações'}`
+      : '';
+  }
+  selects.forEach(s => s.classList.toggle('ativo', !!s.value));
+}
+
+selects.forEach(s => s.addEventListener('change', aplicar));
+btnLimpar?.addEventListener('click', () => {
+  selects.forEach(s => s.value = '');
+  aplicar();
+});
+</script>
 {% endblock %}
