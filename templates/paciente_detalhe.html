@@ -6,7 +6,17 @@
 <!-- Cabeçalho do paciente -->
 <div class="paciente-cabecalho">
   <div class="paciente-topo">
-    <div class="paciente-avatar">{{ paciente.nome[0]|upper }}</div>
+    {% if foto_rosto %}
+    <figure class="paciente-foto">
+      <img src="{{ url_for('servir_identidade', verificacao_id=foto_rosto.id, tipo='rosto') }}"
+           alt="Foto do rosto de {{ paciente.nome }}">
+      {% if foto_rosto.status == 'pendente' %}
+      <figcaption class="paciente-foto-selo">Aguardando validação</figcaption>
+      {% endif %}
+    </figure>
+    {% else %}
+    <div class="paciente-avatar paciente-avatar-grande">{{ paciente.nome[0]|upper }}</div>
+    {% endif %}
     <div>
       <div class="paciente-nome">{{ paciente.nome }}</div>
       <div class="paciente-sub">
@@ -86,6 +96,78 @@
         style="margin-left:auto">
     <button type="submit" class="botao botao-perigo botao-pequeno"><svg class="ti" aria-hidden="true"><use href="#ti-trash"/></svg> Remover</button>
   </form>
+</div>
+
+<!-- Documentos e verificação de identidade -->
+{% set eh_admin = session.get('usuario_perfil') == 'admin' %}
+<div class="secao" id="identidade">
+  <div class="secao-cabecalho">
+    <h2 class="secao-titulo"><svg class="ti" aria-hidden="true"><use href="#ti-id"/></svg> Documentos e verificação</h2>
+    {% if eh_admin %}
+    <a href="{{ url_for('repositorio', novo_tipo='paciente', novo_id=paciente.id) }}#nova"
+       class="botao botao-secundario botao-pequeno"><svg class="ti" aria-hidden="true"><use href="#ti-upload"/></svg> Enviar fotos</a>
+    {% endif %}
+  </div>
+
+  <div class="ident-grupo-titulo">Idoso</div>
+  {% if verificacoes_idoso %}
+    <ul class="ident-lista">
+      {% for v in verificacoes_idoso %}
+      <li class="ident-item">
+        {% if eh_admin or v.status != 'recusado' %}
+        <img class="ident-mini" loading="lazy" alt="Rosto enviado"
+             src="{{ url_for('servir_identidade', verificacao_id=v.id, tipo='rosto') }}">
+        {% endif %}
+        {% if eh_admin %}
+        <img class="ident-mini" loading="lazy" alt="Documento enviado"
+             src="{{ url_for('servir_identidade', verificacao_id=v.id, tipo='documento') }}">
+        {% endif %}
+        <div class="ident-info">
+          <span class="ident-status ident-status-{{ v.status }}">{{ v.status|capitalize }}</span>
+          <span class="ident-meta">{{ ROTULOS_RESULTADO_FACIAL.get(v.resultado_facial, '—') }} · enviado {{ v.enviado_em[:16] }}</span>
+        </div>
+        {% if eh_admin %}
+        <a class="botao botao-secundario botao-pequeno" href="{{ url_for('repositorio_detalhe', verificacao_id=v.id) }}">Abrir</a>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="ident-vazio">Nenhuma foto de documento ou rosto enviada.</p>
+  {% endif %}
+
+  <div class="ident-grupo-titulo">Responsáveis vinculados</div>
+  {% if responsaveis_vinculados %}
+    <ul class="ident-lista">
+      {% for r in responsaveis_vinculados %}
+      <li class="ident-item">
+        {% if eh_admin and r.verificacao %}
+        <img class="ident-mini" loading="lazy" alt="Rosto de {{ r.nome }}"
+             src="{{ url_for('servir_identidade', verificacao_id=r.verificacao.id, tipo='rosto') }}">
+        <img class="ident-mini" loading="lazy" alt="Documento de {{ r.nome }}"
+             src="{{ url_for('servir_identidade', verificacao_id=r.verificacao.id, tipo='documento') }}">
+        {% endif %}
+        <div class="ident-info">
+          <strong>{{ r.nome }}</strong>
+          {% if r.verificacao %}
+          <span class="ident-status ident-status-{{ r.verificacao.status }}">{{ r.verificacao.status|capitalize }}</span>
+          {% else %}
+          <span class="ident-status ident-status-sem">Sem envio</span>
+          {% endif %}
+        </div>
+        {% if eh_admin %}
+          {% if r.verificacao %}
+          <a class="botao botao-secundario botao-pequeno" href="{{ url_for('repositorio_detalhe', verificacao_id=r.verificacao.id) }}">Abrir</a>
+          {% else %}
+          <a class="botao botao-secundario botao-pequeno" href="{{ url_for('repositorio', novo_tipo='responsavel', novo_id=r.id) }}#nova">Enviar fotos</a>
+          {% endif %}
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="ident-vazio">Nenhum responsável vinculado a este idoso.</p>
+  {% endif %}
 </div>
 
 <!-- Abas de navegação da ficha -->

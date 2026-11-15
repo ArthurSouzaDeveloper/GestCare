@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block titulo %}Repositório{% endblock %}
+
+{% block conteudo %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;gap:1rem;flex-wrap:wrap">
+  <div>
+    <h1 class="titulo-pagina"><svg class="ti" aria-hidden="true"><use href="#ti-id"/></svg> Repositório</h1>
+    <p class="subtitulo">Documentos e fotos de rosto para validar idosos e responsáveis</p>
+  </div>
+  <a href="#nova" class="botao botao-primario botao-pequeno"><svg class="ti" aria-hidden="true"><use href="#ti-upload"/></svg> Enviar fotos</a>
+</div>
+
+<div class="ident-aviso">
+  <svg class="ti" aria-hidden="true"><use href="#ti-shield-check"/></svg>
+  <div>
+    A análise automática roda neste servidor e nenhuma foto é enviada para outra empresa.
+    Ela <strong>sinaliza</strong> divergências; quem aprova ou recusa é você.
+    {% if not motor_facial_ok %}<br><strong>Comparação facial desligada:</strong> as bibliotecas opcionais não estão instaladas (veja <code>requirements-verificacao.txt</code>).{% endif %}
+    {% if not motor_ocr_ok %}<br><strong>Leitura do CPF no documento desligada:</strong> o OCR local não está instalado.{% endif %}
+  </div>
+</div>
+
+<div class="tabs">
+  {% for chave, rotulo in [('pendente','Pendentes'),('aprovado','Aprovados'),('recusado','Recusados'),('todos','Todos')] %}
+  <a href="{{ url_for('repositorio', status=chave, tipo=filtro_tipo) }}"
+     class="tab-item {% if filtro_status == chave %}ativo{% endif %}">
+    {{ rotulo }}{% if chave != 'todos' %} ({{ contagem.get(chave, 0) }}){% endif %}
+  </a>
+  {% endfor %}
+</div>
+
+<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:1rem">
+  <a href="{{ url_for('repositorio', status=filtro_status) }}" class="botao botao-pequeno {% if not filtro_tipo %}botao-primario{% else %}botao-secundario{% endif %}">Todos</a>
+  <a href="{{ url_for('repositorio', status=filtro_status, tipo='paciente') }}" class="botao botao-pequeno {% if filtro_tipo == 'paciente' %}botao-primario{% else %}botao-secundario{% endif %}">Idosos</a>
+  <a href="{{ url_for('repositorio', status=filtro_status, tipo='responsavel') }}" class="botao botao-pequeno {% if filtro_tipo == 'responsavel' %}botao-primario{% else %}botao-secundario{% endif %}">Responsáveis</a>
+</div>
+
+{% if verificacoes %}
+<ul class="ident-lista">
+  {% for v in verificacoes %}
+  <li class="ident-item ident-item-card">
+    <img class="ident-mini" loading="lazy" alt="Rosto"
+         src="{{ url_for('servir_identidade', verificacao_id=v.id, tipo='rosto') }}">
+    <div class="ident-info">
+      <strong>{{ v.pessoa_nome or '(pessoa removida)' }}</strong>
+      <span class="ident-meta">
+        {% if v.tipo_pessoa == 'paciente' %}Idoso{% else %}Responsável{% if v.idoso_do_responsavel %} de {{ v.idoso_do_responsavel }}{% endif %}{% endif %}
+        · {{ v.enviado_em[:16] }}{% if v.rosto_presencial %} · rosto tirado na recepção{% endif %}
+      </span>
+      <span class="ident-sinais">
+        <span class="ident-status ident-status-{{ v.status }}">{{ v.status|capitalize }}</span>
+        <span class="ident-sinal {% if v.resultado_facial == 'compativel' %}ident-sinal-ok{% elif v.resultado_facial in ('incompativel','sem_rosto_documento','sem_rosto_selfie','inconclusivo') %}ident-sinal-alerta{% endif %}">
+          {{ ROTULOS_RESULTADO_FACIAL.get(v.resultado_facial, '—') }}</span>
+        <span class="ident-sinal {% if v.cpf_confere == 1 %}ident-sinal-ok{% elif v.cpf_confere == 0 or not v.cpf_cadastro_valido %}ident-sinal-alerta{% endif %}">
+          {% if not v.cpf_cadastro_valido %}CPF do cadastro inválido{% elif v.cpf_confere == 1 %}CPF confere{% elif v.cpf_confere == 0 %}CPF diferente do documento{% else %}CPF não lido no documento{% endif %}
+        </span>
+      </span>
+    </div>
+    <a class="botao botao-secundario botao-pequeno" href="{{ url_for('repositorio_detalhe', verificacao_id=v.id) }}">Revisar</a>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="vazio">
+  <span class="vazio-icone"><svg class="ti" aria-hidden="true"><use href="#ti-id"/></svg></span>
+  <h2 class="vazio-titulo">Nada por aqui</h2>
+  <p class="vazio-texto">Nenhuma verificação {% if filtro_status != 'todos' %}com status "{{ filtro_status }}"{% endif %}.</p>
+</div>
+{% endif %}
+
+<section class="secao" id="nova" style="margin-top:1.5rem">
+  <div class="secao-cabecalho"><h2 class="secao-titulo">Enviar fotos para validação</h2></div>
+  <form method="POST" action="{{ url_for('repositorio_nova') }}" enctype="multipart/form-data" class="formulario" style="padding:0;box-shadow:none;border:0">
+    <div class="form-grupo">
+      <label class="form-label" for="pessoa">Pessoa <span class="form-obrigatorio">*</span></label>
+      <select name="pessoa" id="pessoa" class="form-select" required>
+        <option value="">Selecione…</option>
+        <optgroup label="Idosos">
+          {% for p in pacientes %}
+          <option value="paciente:{{ p.id }}" data-consentidor="{{ p.contato_emergencia_nome or '' }}"
+                  data-relacao="{{ ('Responsável — ' ~ p.contato_emergencia_parentesco) if p.contato_emergencia_parentesco else 'Responsável' }}"
+                  {% if pre_tipo == 'paciente' and pre_id == p.id|string %}selected{% endif %}>{{ p.nome }}</option>
+          {% endfor %}
+        </optgroup>
+        <optgroup label="Responsáveis">
+          {% for r in responsaveis %}
+          <option value="responsavel:{{ r.id }}" data-consentidor="{{ r.nome }}" data-relacao="Próprio"
+                  {% if pre_tipo == 'responsavel' and pre_id == r.id|string %}selected{% endif %}>{{ r.nome }}{% if r.paciente_nome %} (de {{ r.paciente_nome }}){% endif %}</option>
+          {% endfor %}
+        </optgroup>
+      </select>
+    </div>
+
+    <div class="form-linha">
+      <div class="form-grupo">
+        <label class="form-label" for="foto_documento">Foto do documento (RG ou CNH, lado da foto) <span class="form-obrigatorio">*</span></label>
+        <input type="file" name="foto_documento" id="foto_documento" class="form-input"
+               accept="image/jpeg,image/png,image/webp" capture="environment" required>
+      </div>
+      <div class="form-grupo">
+        <label class="form-label" for="foto_rosto">Foto do rosto <span class="form-obrigatorio">*</span></label>
+        <input type="file" name="foto_rosto" id="foto_rosto" class="form-input"
+               accept="image/jpeg,image/png,image/webp" capture="user" required>
+        <p class="form-ajuda">No celular, abre a câmera frontal. Rosto de frente, sem óculos escuros, boa luz.</p>
+      </div>
+    </div>
+
+    <label class="ident-check">
+      <input type="checkbox" name="rosto_presencial" value="sim">
+      <span>Tirei a foto do rosto agora, com a pessoa presente na recepção, e conferi o documento original.</span>
+    </label>
+
+    <fieldset class="ident-termo">
+      <legend>Consentimento (LGPD, dado biométrico)</legend>
+      <p>{{ TERMO_BIOMETRIA }}</p>
+      <p class="form-ajuda">Para idosos, o consentimento é dado pelo responsável cadastrado na ficha. Se a pessoa já consentiu antes, o registro anterior é reaproveitado.</p>
+      <div class="form-linha">
+        <div class="form-grupo">
+          <label class="form-label" for="consentido_por_nome">Quem consentiu <span class="form-obrigatorio">*</span></label>
+          <input type="text" name="consentido_por_nome" id="consentido_por_nome" class="form-input" maxlength="120" required>
+        </div>
+        <div class="form-grupo">
+          <label class="form-label" for="relacao">Relação com a pessoa <span class="form-obrigatorio">*</span></label>
+          <input type="text" name="relacao" id="relacao" class="form-input" maxlength="60" required>
+        </div>
+      </div>
+      <label class="ident-check">
+        <input type="checkbox" name="aceite_termo" value="sim" required>
+        <span>Li o termo para a pessoa que consentiu e ela concordou.</span>
+      </label>
+    </fieldset>
+
+    <div class="form-botoes">
+      <button type="submit" class="botao botao-primario"><svg class="ti" aria-hidden="true"><use href="#ti-upload"/></svg> Enviar e analisar</button>
+    </div>
+  </form>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var sel = document.getElementById('pessoa');
+  var nome = document.getElementById('consentido_por_nome');
+  var rel = document.getElementById('relacao');
+  function preencher() {
+    var op = sel.options[sel.selectedIndex];
+    if (!op || !op.value) return;
+    nome.value = op.dataset.consentidor || '';
+    rel.value = op.dataset.relacao || '';
+  }
+  sel.addEventListener('change', preencher);
+  preencher();
+})();
+</script>
+{% endblock %}

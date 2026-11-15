@@ -29,6 +29,13 @@ def cliente(tmp_path, monkeypatch):
             if 'casa_id' in [r[1] for r in c.execute('PRAGMA table_info(usuarios)')] else \
             c.execute("INSERT INTO usuarios (id, nome, email, senha, perfil, paciente_id) "
                       "VALUES (10, 'Marcos Monteiro', 'm@x.com', 'x', 'responsavel', 1)")
+        # Identidade do responsável aprovada pela casa (sem isso o portal fica bloqueado).
+        c.execute("INSERT INTO consentimentos_biometria (id, casa_id, tipo_pessoa, pessoa_id, "
+                  "consentido_por_nome, relacao, versao_termo) "
+                  "VALUES (1, 1, 'responsavel', 10, 'Marcos Monteiro', 'Próprio', 'v1')")
+        c.execute("INSERT INTO verificacoes_identidade (casa_id, tipo_pessoa, pessoa_id, consentimento_id, "
+                  "foto_documento, foto_rosto, status) "
+                  "VALUES (1, 'responsavel', 10, 1, 'd.jpg', 'r.jpg', 'aprovado')")
         c.execute("INSERT INTO usuarios (id, nome, email, senha, perfil, casa_id) "
                   "VALUES (11, 'Carla Enfermeira', 'c@x.com', 'x', 'enfermeiro', 1)")
         c.execute("INSERT INTO medicamentos (id, paciente_id, nome, dosagem, eh_antibiotico, data_fim_tratamento) "

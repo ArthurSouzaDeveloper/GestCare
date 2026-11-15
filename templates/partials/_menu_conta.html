@@ -21,6 +21,15 @@
     <span>Meu perfil</span>
   </a>
 
+  {% if sufixo == 'mobile' %}
+    {% for endpoint, rotulo, icone in destinos_extra | default([]) %}
+    <a href="{{ url_for(endpoint) }}" class="menu-conta-item" role="menuitem">
+      <svg class="ti" aria-hidden="true"><use href="#ti-{{ icone }}"/></svg>
+      <span>{{ rotulo }}</span>
+    </a>
+    {% endfor %}
+  {% endif %}
+
   {% if session.get('usuario_perfil') in ('enfermeiro', 'admin') %}
   <button type="button" class="menu-conta-item" role="menuitem"
           onclick="ativarNotificacoes(false)">
