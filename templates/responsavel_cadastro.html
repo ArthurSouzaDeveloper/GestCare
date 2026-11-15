@@ -12,9 +12,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ versao_assets }}">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
 </head>
 <body style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem">
+{% include 'partials/_icones.html' %}
 
 <div style="width:100%;max-width:420px">
   {% with mensagens = get_flashed_messages(with_categories=true) %}
