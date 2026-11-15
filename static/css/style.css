@@ -1297,6 +1297,23 @@ button, input, select, textarea { font-family: inherit; }
 .btn-icone-perigo:hover { background: var(--cor-erro-bg); color: var(--cor-erro); border-color: var(--cor-erro); }
 .btn-icone-ok:hover { background: var(--cor-sucesso-bg); color: var(--cor-sucesso); border-color: var(--cor-sucesso); }
 
+/* Ação principal da linha de usuário (Editar / Restaurar): maior e mais
+   chamativa que os ícones de desativar e excluir. */
+.usuario-acoes { align-items: center; }
+.botao-acao-principal { min-height: 34px; padding: .4rem .95rem; font-size: .88rem; box-shadow: none; text-decoration: none; }
+.usuario-acoes form { margin: 0; }
+.abas-usuarios { display: flex; gap: .4rem; margin-bottom: .9rem; flex-wrap: wrap; }
+.aba-usuarios {
+  display: inline-flex; align-items: center; gap: .35rem;
+  padding: .45rem .9rem; border-radius: 999px; font-size: .88rem; font-weight: 600;
+  color: var(--cor-texto-suave); background: var(--cor-card); border: 1.5px solid var(--cor-borda);
+  text-decoration: none;
+}
+.aba-usuarios.ativa { color: var(--cor-primaria-escura); background: var(--cor-primaria-clara); border-color: var(--cor-primaria); }
+.aba-contador { background: var(--cor-erro-bg); color: var(--cor-erro); border-radius: 999px; padding: 0 .45rem; font-size: .75rem; }
+.aviso-excluidos { font-size: .85rem; color: var(--cor-texto-suave); margin: 0 0 .9rem; }
+.usuario-excluido .avatar-usuario { opacity: .55; }
+
 /* ── IMPRESSÃO ──────────────────────────────────────────── */
 /* ══════════════════════════════════════════════════════════
    IMPRESSÃO — ficha do paciente e mapa de medicação
