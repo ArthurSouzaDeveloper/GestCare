@@ -311,6 +311,17 @@
     {% if e.valores_referencia %}
     <div style="font-size:.8rem;color:var(--cor-texto-suave);margin-top:.25rem">Ref: {{ e.valores_referencia }}</div>
     {% endif %}
+    {% if e.observacao_familia %}
+    <div style="font-size:.85rem;color:var(--cor-texto-suave);margin-top:.4rem">
+      <strong style="font-weight:600">Recado da casa:</strong> {{ e.observacao_familia }}
+    </div>
+    {% endif %}
+    {% if e.arquivo_nome %}
+    <div style="margin-top:.5rem">
+      <a href="{{ url_for('servir_exame', nome_arquivo=e.arquivo_nome) }}"
+         target="_blank" rel="noopener" class="botao botao-secundario botao-pequeno"><i class="ti ti-paperclip" aria-hidden="true"></i> Ver documento do exame</a>
+    </div>
+    {% endif %}
   </div>
   {% endfor %}
 </div>

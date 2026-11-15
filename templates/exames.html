@@ -56,6 +56,9 @@
             {{ e.observacoes }}
           </div>
           {% endif %}
+          {% if e.observacao_familia %}
+          <div style="font-size:.85rem;margin-top:.4rem"><strong style="font-weight:600">Recado para a família:</strong> {{ e.observacao_familia }}</div>
+          {% endif %}
           {% if e.arquivo_nome %}
           <div style="margin-top:.5rem">
             <a href="{{ url_for('servir_exame', nome_arquivo=e.arquivo_nome) }}"
@@ -125,7 +128,12 @@
       <div class="form-grupo">
         <label class="form-label">Observações</label>
         <textarea name="observacoes" class="form-textarea" rows="2"
-                  placeholder="Notas adicionais, recomendações médicas..."></textarea>
+                  placeholder="Notas internas da equipe. A família não vê este campo."></textarea>
+      </div>
+      <div class="form-grupo">
+        <label class="form-label"><i class="ti ti-users" aria-hidden="true"></i> Recado para a família</label>
+        <textarea name="observacao_familia" class="form-textarea" rows="2"
+                  placeholder="Aparece no portal do responsável junto com o resultado. Ex: repetir em 30 dias, jejum de 8h."></textarea>
       </div>
       <div class="form-grupo">
         <label class="form-label"><i class="ti ti-paperclip" aria-hidden="true"></i> Anexar Documento</label>
