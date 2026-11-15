@@ -1,0 +1,127 @@
+/* ══════════════════════════════════════════════════════════
+   PORTAL DA FAMÍLIA — telas do responsável (templates/familia/)
+   Texto base de 17px, alvos de toque de 52px, situação sempre com
+   ícone + palavra. Só consome tokens semânticos; a aparência de
+   cada direção vem de direcoes.css.
+   ══════════════════════════════════════════════════════════ */
+.fam { max-width: 46rem; margin: 0 auto; font-size: 1.0625rem; display: flex; flex-direction: column; gap: var(--esp-4); }
+.fam .ti { width: 1.15em; height: 1.15em; flex: none; vertical-align: -.2em; }
+.fam-ola { color: var(--texto-secundario); font-size: var(--txt-base); margin: 0; }
+.fam-titulo { font-size: 1.625rem; line-height: 1.2; font-weight: var(--peso-titulo); color: var(--texto-primario); margin: 0; text-wrap: balance; }
+.fam-sub { color: var(--texto-secundario); margin: 0; font-size: var(--txt-base); }
+.fam .dado-num { font-size: .94em; }
+
+/* botões maiores só no portal */
+.fam .botao { min-height: 52px; font-size: 1.0625rem; padding: var(--esp-3) var(--esp-5); width: 100%; justify-content: center; gap: var(--esp-2); text-decoration: none; }
+.fam .botao-pequeno { min-height: 48px; font-size: 1rem; }
+
+/* cartão do idoso */
+.fam-idoso { display: flex; align-items: center; gap: var(--esp-4); background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio-lg); padding: var(--esp-4); }
+.fam-avatar { width: 56px; height: 56px; border-radius: var(--raio-circulo); flex: none; display: grid; place-items: center;
+  background: var(--acao-sutil); color: var(--acao-sutil-texto); font-family: var(--fonte-titulo, var(--fonte)); font-size: 1.5rem; font-weight: var(--peso-titulo); }
+.fam-idoso-nome { font-family: var(--fonte-titulo, var(--fonte)); font-size: 1.1875rem; font-weight: var(--peso-titulo); line-height: 1.25; }
+.fam-idoso-sub { color: var(--texto-secundario); font-size: var(--txt-base); }
+
+/* blocos */
+.fam-bloco { background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio-lg); overflow: hidden; }
+.fam-bloco-topo { display: flex; align-items: center; gap: var(--esp-2); padding: var(--esp-3) var(--esp-4); border-bottom: 1px solid var(--borda-sutil); }
+.fam-bloco-titulo { font-size: 1.125rem; font-weight: var(--peso-titulo); margin: 0; }
+.fam-mais { margin-left: auto; color: var(--acao-sutil-texto); font-weight: var(--peso-titulo); font-size: var(--txt-base); text-decoration: underline; text-underline-offset: 3px; white-space: nowrap; padding: var(--esp-2) 0; }
+.fam-bloco-corpo { padding: var(--esp-1) var(--esp-4) var(--esp-3); }
+.fam-vazio { color: var(--texto-secundario); padding: var(--esp-3) 0; margin: 0; }
+:root[data-direcao="B"] .fam-bloco { background: transparent; border: 0; border-top: 2px solid var(--texto-primario); border-radius: 0; }
+:root[data-direcao="B"] .fam-bloco-topo { padding-inline: 2px; }
+:root[data-direcao="B"] .fam-bloco-corpo { padding-inline: 2px; }
+:root[data-direcao="B"] .fam-bloco-titulo { font-size: 1.25rem; }
+:root[data-direcao="B"] .fam-idoso { border-radius: var(--raio-sm); }
+
+/* situação (ícone + palavra, nunca só cor) */
+.fam-st { display: inline-flex; align-items: center; gap: 5px; font-size: .84rem; font-weight: var(--peso-titulo); padding: 2px 10px; border-radius: var(--raio-pill); }
+.fam-st-ok { color: var(--risco-baixo); background: var(--risco-baixo-bg); }
+.fam-st-espera { color: var(--texto-secundario); background: var(--superficie-afundada); border: 1px solid var(--borda); }
+.fam-st-aviso { color: var(--risco-medio); background: var(--risco-medio-bg); }
+.fam-st-alto { color: var(--risco-alto); background: var(--risco-alto-bg); }
+.fam-st-novo { color: var(--texto-sobre-acao); background: var(--acao); text-transform: uppercase; letter-spacing: .04em; font-size: .75rem; border-radius: var(--raio-xs); }
+
+/* remédios de hoje */
+.fam-dose { display: grid; grid-template-columns: 4.2rem 1fr; gap: 2px var(--esp-3); padding: var(--esp-3) 0; border-bottom: 1px solid var(--borda-sutil); }
+.fam-dose:last-child { border-bottom: 0; }
+.fam-hora { font-size: 1.1875rem; font-weight: var(--peso-enfase); padding-top: 1px; }
+.fam-dose-nome { font-weight: var(--peso-titulo); line-height: 1.3; }
+.fam-dose-sub { grid-column: 2; display: flex; align-items: center; gap: var(--esp-2); flex-wrap: wrap; color: var(--texto-secundario); font-size: .95rem; }
+
+/* destaque de novidade */
+.fam-destaque { display: flex; gap: var(--esp-3); align-items: flex-start; background: var(--acao-sutil); color: var(--texto-primario); border-radius: var(--raio-lg); padding: var(--esp-4); }
+.fam-destaque > .ti { color: var(--acao-sutil-texto); width: 1.5rem; height: 1.5rem; margin-top: 2px; }
+.fam-destaque p { margin: 2px 0 var(--esp-3); color: var(--texto-secundario); }
+.fam-destaque strong { font-size: 1.0625rem; }
+.fam-destaque .botao { width: auto; }
+
+/* anotações */
+.fam-nota { padding: var(--esp-3) 0; }
+.fam-nota + .fam-nota { border-top: 1px solid var(--borda-sutil); }
+.fam-nota-meta { display: flex; flex-wrap: wrap; gap: 2px var(--esp-2); align-items: center; color: var(--texto-secundario); font-size: .9rem; margin-bottom: 3px; }
+.fam-nota p { margin: 0; line-height: 1.5; }
+:root[data-direcao="B"] .fam-nota p { font-family: var(--fonte-titulo); font-size: 1.0625rem; line-height: 1.5; }
+
+/* contato e leitura */
+.fam-aviso { display: flex; gap: var(--esp-3); align-items: center; border: 1px dashed var(--borda-controle); border-radius: var(--raio-lg); padding: var(--esp-4); color: var(--texto-secundario); font-size: .95rem; line-height: 1.4; }
+.fam-aviso > .ti { width: 1.5rem; height: 1.5rem; color: var(--acao-sutil-texto); }
+.fam-leitura { display: flex; gap: 6px; align-items: center; justify-content: center; text-align: center; color: var(--texto-secundario); font-size: .875rem; margin: 0; }
+
+/* alerta de alergia / antibiótico */
+.fam-alerta { display: flex; gap: var(--esp-3); padding: var(--esp-3) var(--esp-4); border-radius: var(--raio-lg); line-height: 1.4; }
+.fam-alerta > .ti { width: 1.4rem; height: 1.4rem; margin-top: 1px; }
+.fam-alerta strong { display: block; }
+.fam-alerta-alto { background: var(--risco-alto-bg); color: var(--risco-alto); }
+.fam-alerta-medio { background: var(--risco-medio-bg); color: var(--risco-medio); }
+.fam-alerta span { color: var(--texto-primario); }
+
+/* saúde */
+.fam-rem { padding: var(--esp-3) 0; border-bottom: 1px solid var(--borda-sutil); display: flex; flex-direction: column; gap: var(--esp-2); }
+.fam-rem:last-child { border-bottom: 0; }
+.fam-rem-topo { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 2px var(--esp-3); }
+.fam-rem-nome { font-weight: var(--peso-titulo); font-size: 1.0625rem; }
+.fam-rem-dose { color: var(--texto-secundario); font-size: .95rem; }
+.fam-horas { display: flex; gap: 6px; flex-wrap: wrap; }
+.fam-horas span { padding: 3px 10px; border-radius: var(--raio-xs); background: var(--superficie-afundada); border: 1px solid var(--borda); font-size: .95rem; }
+.fam-rem p { margin: 0; color: var(--texto-secundario); font-size: .95rem; }
+.fam-linha { display: flex; justify-content: space-between; align-items: center; gap: var(--esp-3); padding: var(--esp-3) 0; border-bottom: 1px solid var(--borda-sutil); }
+.fam-linha:last-child { border-bottom: 0; }
+.fam-linha small { display: block; color: var(--texto-secundario); font-size: .9rem; }
+.fam-dl { display: grid; grid-template-columns: 1fr; gap: var(--esp-3); margin: var(--esp-2) 0; }
+.fam-dl dt { font-size: .78rem; font-weight: var(--peso-titulo); text-transform: uppercase; letter-spacing: .05em; color: var(--texto-secundario); }
+.fam-dl dd { margin: 1px 0 0; }
+
+/* exames */
+.fam-filtros { display: flex; gap: var(--esp-2); overflow-x: auto; padding-bottom: 2px; }
+.fam-filtros button { font: inherit; font-size: 1rem; white-space: nowrap; min-height: 44px; padding: var(--esp-2) var(--esp-4); border-radius: var(--raio-pill); border: 1px solid var(--borda-controle); background: var(--superficie); color: var(--texto-primario); cursor: pointer; }
+.fam-filtros button[aria-pressed="true"] { background: var(--texto-primario); color: var(--superficie); border-color: var(--texto-primario); font-weight: var(--peso-titulo); }
+:root[data-direcao="B"] .fam-filtros button { border-radius: var(--raio-xs); }
+.fam-mes { font-size: .8rem; font-weight: var(--peso-titulo); text-transform: uppercase; letter-spacing: .06em; color: var(--texto-secundario); margin: var(--esp-2) 2px calc(var(--esp-2) * -1); }
+.fam-exame { background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio-lg); padding: var(--esp-4); display: flex; flex-direction: column; gap: var(--esp-3); }
+.fam-exame[hidden] { display: none; }
+:root[data-direcao="B"] .fam-exame { border-radius: var(--raio-sm); }
+.fam-exame-topo { display: flex; justify-content: space-between; gap: var(--esp-3); align-items: flex-start; }
+.fam-exame h3 { font-size: 1.1875rem; line-height: 1.25; margin: 0; font-weight: var(--peso-titulo); }
+.fam-exame-meta { color: var(--texto-secundario); font-size: .95rem; line-height: 1.4; margin-top: 2px; }
+.fam-resultado { background: var(--superficie-afundada); border-radius: var(--raio-sm); padding: var(--esp-3); line-height: 1.45; }
+.fam-resultado small { display: block; color: var(--texto-secundario); font-size: .875rem; margin-top: 3px; }
+.fam-recado { background: var(--bilhete-bg, var(--risco-medio-bg)); border: 1px solid var(--bilhete-borda, var(--borda)); border-radius: var(--raio-lg); padding: var(--esp-3) var(--esp-4); }
+.fam-recado-titulo { display: flex; align-items: center; gap: 7px; font-size: .8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--texto-secundario); margin-bottom: 4px; }
+.fam-recado p { margin: 0; font-size: 1.0625rem; line-height: 1.45; white-space: pre-line; }
+:root[data-direcao="B"] .fam-recado p { font-family: var(--fonte-titulo); font-style: italic; font-size: 1.125rem; }
+.fam-sem-pdf { display: flex; gap: 6px; align-items: center; color: var(--texto-secundario); font-size: .95rem; }
+
+/* computador: início em duas colunas */
+.fam-cols { display: flex; flex-direction: column; gap: var(--esp-4); }
+@media (min-width: 960px) {
+  .fam { max-width: 72rem; }
+  .fam-cols { display: grid; grid-template-columns: 1.25fr 1fr; gap: var(--esp-5); align-items: start; }
+  .fam-col { display: flex; flex-direction: column; gap: var(--esp-4); min-width: 0; }
+  .fam-lista-exames { max-width: 46rem; }
+  .fam .botao { width: auto; min-width: 14rem; }
+}
+.fam-col { display: flex; flex-direction: column; gap: var(--esp-4); min-width: 0; }
+.fam-lista-exames { display: flex; flex-direction: column; gap: var(--esp-4); }
+@media (max-width: 959px) { .fam-lista-exames { max-width: none; } }

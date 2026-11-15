@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+{% from "familia/_macros.html" import cartao_idoso, aviso_leitura %}
+{% block titulo %}Saúde{% endblock %}
+
+{% block conteudo %}
+<div class="fam">
+  <h1 class="fam-titulo">Saúde</h1>
+  {{ cartao_idoso(paciente) }}
+
+  {% if dieta and dieta.alergias_alimentares %}
+  <div class="fam-alerta fam-alerta-alto" role="note">
+    <svg class="ti" aria-hidden="true"><use href="#ti-alert-triangle"/></svg>
+    <div><strong>Alergias</strong><span>{{ dieta.alergias_alimentares }}</span></div>
+  </div>
+  {% endif %}
+
+  <section class="fam-bloco" aria-labelledby="t-rem">
+    <div class="fam-bloco-topo"><h2 class="fam-bloco-titulo" id="t-rem">Remédios em uso</h2></div>
+    <div class="fam-bloco-corpo">
+      {% for m in remedios %}
+        <div class="fam-rem">
+          <div class="fam-rem-topo">
+            <span class="fam-rem-nome">{{ m.nome }}</span>
+            <span class="fam-rem-dose">{% if m.dosagem %}<span class="dado-num">{{ m.dosagem }}</span>{% endif %}{% if m.via_administracao %} · {{ m.via_administracao }}{% endif %}</span>
+          </div>
+          {% if m.horarios %}<div class="fam-horas" aria-label="Horários">{% for h in m.horarios %}<span class="dado-num">{{ h }}</span>{% endfor %}</div>{% endif %}
+          {% if m.dias_restantes is not none %}
+            <div class="fam-alerta fam-alerta-medio" style="padding:var(--esp-2) var(--esp-3)">
+              <svg class="ti" aria-hidden="true"><use href="#ti-clock"/></svg>
+              <div><strong>Antibiótico
+                {% if m.dias_restantes > 0 %}· termina em <span class="dado-num">{{ m.data_fim_tratamento|data_br }}</span>
+                {% elif m.dias_restantes == 0 %}· último dia hoje
+                {% else %}· tratamento encerrado em <span class="dado-num">{{ m.data_fim_tratamento|data_br }}</span>{% endif %}</strong></div>
+            </div>
+          {% endif %}
+          {% if m.instrucoes %}<p>{{ m.instrucoes }}</p>{% endif %}
+        </div>
+      {% else %}
+        <p class="fam-vazio">Nenhum remédio cadastrado.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="fam-bloco" aria-labelledby="t-cond">
+    <div class="fam-bloco-topo"><h2 class="fam-bloco-titulo" id="t-cond">Condições de saúde</h2></div>
+    <div class="fam-bloco-corpo">
+      {% for c in condicoes %}
+        <div class="fam-linha">
+          <div>{{ c.nome }}
+            {% if c.descricao %}<small>{{ c.descricao }}</small>{% endif %}
+            {% if c.data_diagnostico %}<small>Diagnóstico em <span class="dado-num">{{ c.data_diagnostico|data_br }}</span></small>{% endif %}</div>
+          {% if c.gravidade %}<span class="fam-st {{ 'fam-st-alto' if c.gravidade|lower in ('grave', 'alta') else ('fam-st-aviso' if c.gravidade|lower in ('moderada', 'média', 'media') else 'fam-st-espera') }}">{{ c.gravidade }}</span>{% endif %}
+        </div>
+      {% else %}
+        <p class="fam-vazio">Nenhuma condição cadastrada.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if dieta and (dieta.dieta_especifica or dieta.consistencia_alimento or dieta.restricoes_alimentares or dieta.comorbidades) %}
+  <section class="fam-bloco" aria-labelledby="t-dieta">
+    <div class="fam-bloco-topo"><h2 class="fam-bloco-titulo" id="t-dieta">Alimentação</h2></div>
+    <div class="fam-bloco-corpo"><dl class="fam-dl">
+      {% if dieta.dieta_especifica %}<div><dt>Dieta</dt><dd>{{ dieta.dieta_especifica }}</dd></div>{% endif %}
+      {% if dieta.consistencia_alimento %}<div><dt>Consistência</dt><dd>{{ dieta.consistencia_alimento }}</dd></div>{% endif %}
+      {% if dieta.restricoes_alimentares %}<div><dt>Não pode comer</dt><dd>{{ dieta.restricoes_alimentares }}</dd></div>{% endif %}
+      {% if dieta.comorbidades %}<div><dt>Outras condições</dt><dd>{{ dieta.comorbidades }}</dd></div>{% endif %}
+    </dl></div>
+  </section>
+  {% endif %}
+
+  {% if ficha_psico %}
+  <section class="fam-bloco" aria-labelledby="t-psico">
+    <div class="fam-bloco-topo"><h2 class="fam-bloco-titulo" id="t-psico">Acompanhamento psicológico</h2></div>
+    <div class="fam-bloco-corpo"><dl class="fam-dl">
+      {% if ficha_psico.antecedentes %}<div><dt>Antecedentes</dt><dd>{{ ficha_psico.antecedentes }}</dd></div>{% endif %}
+      {% if ficha_psico.diagnosticos_mentais %}<div><dt>Diagnósticos</dt><dd>{{ ficha_psico.diagnosticos_mentais }}</dd></div>{% endif %}
+      {% if ficha_psico.medicacao_psiquiatrica %}<div><dt>Medicação psiquiátrica</dt><dd>{{ ficha_psico.medicacao_psiquiatrica }}</dd></div>{% endif %}
+      {% if ficha_psico.comportamento %}<div><dt>Comportamento</dt><dd>{{ ficha_psico.comportamento }}</dd></div>{% endif %}
+    </dl></div>
+  </section>
+  {% endif %}
+
+  {% if profissionais %}
+  <section class="fam-bloco" aria-labelledby="t-prof">
+    <div class="fam-bloco-topo"><h2 class="fam-bloco-titulo" id="t-prof">Profissionais consultados</h2></div>
+    <div class="fam-bloco-corpo">
+      {% for p in profissionais %}
+        <div class="fam-linha"><div>{{ p.nome }}
+          {% if p.especialidade %}<small>{{ p.especialidade }}</small>{% endif %}
+          {% if p.observacoes %}<small>{{ p.observacoes }}</small>{% endif %}</div>
+          {% if p.data_consulta %}<span class="dado-num">{{ p.data_consulta|data_br }}</span>{% endif %}</div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="fam-bloco" id="anotacoes" aria-labelledby="t-notas">
+    <div class="fam-bloco-topo"><h2 class="fam-bloco-titulo" id="t-notas">Anotações da equipe</h2></div>
+    <div class="fam-bloco-corpo">
+      {% for a in anotacoes %}
+        <div class="fam-nota">
+          <div class="fam-nota-meta"><span class="dado-num">{{ a.data_evolucao|data_curta }}</span>
+            {% if a.profissional %}· {{ a.profissional }}{% endif %}{% if a.especialidade %} · {{ a.especialidade }}{% endif %}</div>
+          <p>{{ a.descricao }}</p>
+        </div>
+      {% else %}
+        <p class="fam-vazio">A equipe ainda não fez anotações.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  {{ aviso_leitura() }}
+</div>
+{% endblock %}

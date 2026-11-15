@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "familia/_macros.html" import aviso_leitura, aviso_casa %}
+{% block titulo %}Visitas{% endblock %}
+
+{% block conteudo %}
+<div class="fam">
+  <h1 class="fam-titulo">Visitas</h1>
+  <p class="fam-sub">Quem visitou {{ paciente.nome.split(' ')[0] }}, segundo o registro da portaria.</p>
+  <section class="fam-bloco" aria-labelledby="t-vis">
+    <div class="fam-bloco-topo"><h2 class="fam-bloco-titulo" id="t-vis">Visitas registradas</h2></div>
+    <div class="fam-bloco-corpo">
+      {% for v in visitas %}
+        <div class="fam-nota">
+          <div class="fam-nota-meta"><svg class="ti" aria-hidden="true"><use href="#ti-calendar"/></svg>
+            <span class="dado-num">{{ v.data_visita|data_br }}</span>
+            {% if v.hora_entrada %}· <span class="dado-num">{{ v.hora_entrada }}</span>{% if v.hora_saida %} às <span class="dado-num">{{ v.hora_saida }}</span>{% endif %}{% endif %}</div>
+          <p>{{ v.visitante_nome }}{% if v.visitante_parentesco %} ({{ v.visitante_parentesco }}){% endif %}{% if v.observacoes %}. {{ v.observacoes }}{% endif %}</p>
+        </div>
+      {% else %}
+        <p class="fam-vazio">Nenhuma visita registrada ainda.</p>
+      {% endfor %}
+    </div>
+  </section>
+  {{ aviso_casa() }}
+  {{ aviso_leitura() }}
+</div>
+{% endblock %}
