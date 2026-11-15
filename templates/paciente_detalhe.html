@@ -27,7 +27,14 @@
     {% if paciente.cpf %}
     <div class="dado-item">
       <div class="dado-label">CPF</div>
-      <div class="dado-valor">{{ paciente.cpf }}</div>
+      <div class="dado-valor">
+        <span class="cpf-campo" data-cpf-aberto="{{ paciente.cpf|formatar_cpf }}">
+          <span class="cpf-valor">{{ paciente.cpf|mascarar_cpf }}</span>
+          <button type="button" class="cpf-toggle" aria-label="Mostrar CPF">
+            <i class="ti ti-eye" aria-hidden="true"></i>
+          </button>
+        </span>
+      </div>
     </div>
     {% endif %}
     {% if paciente.rg %}

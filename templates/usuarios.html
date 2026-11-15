@@ -2,7 +2,7 @@
 {% block titulo %}Usuários{% endblock %}
 
 {% block conteudo %}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;gap:1rem;flex-wrap:wrap">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;gap:1rem;flex-wrap:wrap">
   <div>
     <h1 class="titulo-pagina">Usuários</h1>
     <p class="subtitulo" style="margin-bottom:0">{{ usuarios|length }} usuário{{ 's' if usuarios|length != 1 else '' }}</p>
@@ -11,28 +11,20 @@
 </div>
 
 <div class="secao" style="padding:0">
-  <div style="overflow-x:auto">
-    <div class="tabela-cabecalho">
-      <div>Usuário</div>
-      <div>Função</div>
-      <div>Status</div>
-      <div></div>
-    </div>
+  <div class="lista-usuarios">
     {% for u in usuarios %}
-    <div class="tabela-linha">
-      <div class="tabela-usuario">
-        <div class="avatar-usuario">{{ u.nome[0]|upper }}</div>
-        <div style="min-width:0">
-          <div class="tabela-usuario-nome">
-            {{ u.nome }}
-            {% if u.id == session.get('usuario_id') %}
-              <span style="font-size:11px;background:var(--cor-primaria-clara);color:var(--cor-primaria-escura);padding:2px 6px;border-radius:4px;margin-left:6px">Você</span>
-            {% endif %}
-          </div>
-          <div class="tabela-usuario-email">{{ u.email }}{% if u.paciente_nome %} · {{ u.paciente_nome }}{% endif %}</div>
+    <div class="usuario-linha">
+      <div class="avatar-usuario">{{ u.nome[0]|upper }}</div>
+
+      <div class="usuario-dados">
+        <div class="usuario-nome">
+          {{ u.nome }}
+          {% if u.id == session.get('usuario_id') %}<span class="tag-voce">Você</span>{% endif %}
         </div>
+        <div class="usuario-email">{{ u.email }}{% if u.paciente_nome %} · {{ u.paciente_nome }}{% endif %}</div>
       </div>
-      <div>
+
+      <div class="usuario-meta">
         {% if u.perfil == 'admin' %}
           <span class="badge-perfil badge-perfil-admin">Administrador(a)</span>
         {% elif u.perfil == 'responsavel' %}
@@ -40,28 +32,30 @@
         {% else %}
           <span class="badge-perfil badge-perfil-enfermeiro">Enfermeiro(a)</span>
         {% endif %}
-      </div>
-      <div>
         {% if u.ativo %}
           <span class="status-linha" style="color:var(--cor-sucesso)"><span class="status-ponto ativo"></span> Ativo</span>
         {% else %}
           <span class="status-linha" style="color:var(--cor-texto-terciario)"><span class="status-ponto inativo"></span> Inativo</span>
         {% endif %}
       </div>
-      <div>
+
+      <div class="usuario-acoes">
         {% if u.id != session.get('usuario_id') %}
-        <div style="display:flex;gap:.4rem;flex-wrap:wrap">
-          <form method="POST" action="{{ url_for('toggle_usuario', usuario_id=u.id) }}"
-                onsubmit="return confirm('{{ 'Desativar' if u.ativo else 'Ativar' }} este usuário?')">
-            <button type="submit" class="botao botao-pequeno {{ 'botao-perigo' if u.ativo else 'botao-secundario' }}">
-              {{ 'Desativar' if u.ativo else 'Ativar' }}
-            </button>
-          </form>
-          <form method="POST" action="{{ url_for('excluir_usuario', usuario_id=u.id) }}"
-                onsubmit="return confirm('Excluir permanentemente {{ u.nome }}? Esta ação não pode ser desfeita.')">
-            <button type="submit" class="botao botao-pequeno botao-perigo">Excluir</button>
-          </form>
-        </div>
+        <form method="POST" action="{{ url_for('toggle_usuario', usuario_id=u.id) }}"
+              onsubmit="return confirm('{{ 'Desativar' if u.ativo else 'Ativar' }} {{ u.nome }}?')">
+          <button type="submit" class="btn-icone {{ 'btn-icone-perigo' if u.ativo else 'btn-icone-ok' }}"
+                  title="{{ 'Desativar' if u.ativo else 'Ativar' }} {{ u.nome }}"
+                  aria-label="{{ 'Desativar' if u.ativo else 'Ativar' }} {{ u.nome }}">
+            <i class="ti {{ 'ti-user-off' if u.ativo else 'ti-user-check' }}" aria-hidden="true"></i>
+          </button>
+        </form>
+        <form method="POST" action="{{ url_for('excluir_usuario', usuario_id=u.id) }}"
+              onsubmit="return confirm('Excluir permanentemente {{ u.nome }}? Esta ação não pode ser desfeita.')">
+          <button type="submit" class="btn-icone btn-icone-perigo"
+                  title="Excluir {{ u.nome }}" aria-label="Excluir {{ u.nome }}">
+            <i class="ti ti-trash" aria-hidden="true"></i>
+          </button>
+        </form>
         {% endif %}
       </div>
     </div>

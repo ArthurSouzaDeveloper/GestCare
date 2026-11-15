@@ -46,7 +46,7 @@
         {% for p in pacientes %}
         <option value="{{ p.id }}">
           {{ p.nome }}
-          {% if p.cpf %} — CPF: {{ p.cpf }}{% endif %}
+          {% if p.cpf %} — CPF: {{ p.cpf|mascarar_cpf }}{% endif %}
           {% if p.rg %} — RG: {{ p.rg }}{% endif %}
         </option>
         {% endfor %}

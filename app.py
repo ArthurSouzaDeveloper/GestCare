@@ -525,6 +525,39 @@ def _normalizar_documento(valor):
     return ''.join(c for c in (valor or '') if c.isdigit())
 
 
+def cpf_valido(valor):
+    """Valida CPF pelos dois dígitos verificadores (algoritmo da Receita Federal)."""
+    cpf = _normalizar_documento(valor)
+    if len(cpf) != 11 or cpf == cpf[0] * 11:
+        return False
+    for tamanho in (9, 10):
+        soma = sum(int(cpf[i]) * (tamanho + 1 - i) for i in range(tamanho))
+        digito = (soma * 10) % 11 % 10
+        if digito != int(cpf[tamanho]):
+            return False
+    return True
+
+
+def formatar_cpf(valor):
+    """Formata como 000.000.000-00; devolve o valor original se não tiver 11 dígitos."""
+    cpf = _normalizar_documento(valor)
+    if len(cpf) != 11:
+        return valor or ''
+    return f'{cpf[:3]}.{cpf[3:6]}.{cpf[6:9]}-{cpf[9:]}'
+
+
+def mascarar_cpf(valor):
+    """Oculta o CPF deixando apenas os 3 últimos dígitos: •••.•••.789-00."""
+    cpf = _normalizar_documento(valor)
+    if len(cpf) != 11:
+        return '•••' if valor else ''
+    return f'•••.•••.{cpf[6:9]}-{cpf[9:]}'
+
+
+app.jinja_env.filters['formatar_cpf'] = formatar_cpf
+app.jinja_env.filters['mascarar_cpf'] = mascarar_cpf
+
+
 def extensao_permitida(nome_arquivo):
     return '.' in nome_arquivo and nome_arquivo.rsplit('.', 1)[1].lower() in EXTENSOES_PERMITIDAS
 
@@ -912,6 +945,10 @@ def _processar_cadastro_responsavel(casas=None, casa_preselecionar=None):
         if not nome or not email or not cpf or not senha or not casa_id:
             flash('Preencha todos os campos obrigatórios.', 'erro')
             return render_template('responsavel_cadastro.html', casas=casas, casa_preselecionar=casa_preselecionar)
+        if not cpf_valido(cpf):
+            flash('CPF inválido. Confira os números digitados.', 'erro')
+            return render_template('responsavel_cadastro.html', casas=casas, casa_preselecionar=casa_preselecionar)
+        cpf = formatar_cpf(cpf)
         if len(senha) < 6:
             flash('A senha deve ter pelo menos 6 caracteres.', 'erro')
             return render_template('responsavel_cadastro.html', casas=casas, casa_preselecionar=casa_preselecionar)
@@ -1295,14 +1332,24 @@ def index():
         pacientes = conn.execute('''
             SELECT p.*,
                    (SELECT COUNT(*) FROM medicamentos WHERE paciente_id = p.id AND ativo = 1) as total_medicamentos,
-                   (SELECT COUNT(*) FROM condicoes WHERE paciente_id = p.id) as total_condicoes
+                   (SELECT COUNT(*) FROM condicoes WHERE paciente_id = p.id) as total_condicoes,
+                   (SELECT GROUP_CONCAT(nome, '|') FROM condicoes WHERE paciente_id = p.id) as nomes_condicoes
             FROM pacientes p WHERE p.ativo = 1 AND p.casa_id = ? ORDER BY p.nome
         ''', (casa_id_atual(),)).fetchall()
         pacientes_list = []
+        quartos = set()
+        condicoes = set()
         for p in pacientes:
             p_dict = dict(p)
             p_dict['idade'] = calcular_idade(p_dict['data_nascimento'])
+            lista = [c.strip() for c in (p_dict.get('nomes_condicoes') or '').split('|') if c.strip()]
+            p_dict['condicoes_lista'] = lista
+            condicoes.update(lista)
+            if p_dict.get('quarto'):
+                quartos.add(str(p_dict['quarto']).strip())
             pacientes_list.append(p_dict)
+        quartos_lista = sorted(quartos, key=lambda q: (len(q), q))
+        condicoes_lista = sorted(condicoes, key=str.lower)
 
         antibioticos_raw = conn.execute('''
             SELECT m.id, m.nome, m.data_fim_tratamento, p.id as paciente_id, p.nome as paciente_nome
@@ -1337,7 +1384,9 @@ def index():
     return render_template('index.html', pacientes=pacientes_list,
                            alertas_antibiotico=alertas_antibiotico,
                            agenda_hoje_total=agenda_hoje_total,
-                           equipe_ativa_total=equipe_ativa_total)
+                           equipe_ativa_total=equipe_ativa_total,
+                           quartos_lista=quartos_lista,
+                           condicoes_lista=condicoes_lista)
 
 
 @app.route('/paciente/novo', methods=['GET', 'POST'])
@@ -1346,6 +1395,11 @@ def index():
 def novo_paciente():
     if request.method == 'POST':
         dados = request.form
+        cpf = (dados.get('cpf') or '').strip()
+        if cpf and not cpf_valido(cpf):
+            flash('CPF inválido. Confira os números digitados.', 'erro')
+            return redirect(url_for('novo_paciente'))
+        cpf = formatar_cpf(cpf) if cpf else None
         with get_db() as conn:
             cursor = conn.execute('''
                 INSERT INTO pacientes (
@@ -1355,7 +1409,7 @@ def novo_paciente():
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 dados.get('nome'), dados.get('data_nascimento'), dados.get('sexo'),
-                dados.get('cpf'), dados.get('rg'), dados.get('telefone'),
+                cpf, dados.get('rg'), dados.get('telefone'),
                 dados.get('quarto'), dados.get('contato_emergencia_nome'),
                 dados.get('contato_emergencia_telefone'),
                 dados.get('contato_emergencia_parentesco'), dados.get('observacoes'),
@@ -1591,6 +1645,11 @@ def editar_paciente(paciente_id):
 
         if request.method == 'POST':
             dados = request.form
+            cpf = (dados.get('cpf') or '').strip()
+            if cpf and not cpf_valido(cpf):
+                flash('CPF inválido. Confira os números digitados.', 'erro')
+                return redirect(url_for('editar_paciente', paciente_id=paciente_id))
+            cpf = formatar_cpf(cpf) if cpf else None
             conn.execute('''
                 UPDATE pacientes SET
                     nome = ?, data_nascimento = ?, sexo = ?, cpf = ?, rg = ?,
@@ -1600,7 +1659,7 @@ def editar_paciente(paciente_id):
                 WHERE id = ?
             ''', (
                 dados.get('nome'), dados.get('data_nascimento'), dados.get('sexo'),
-                dados.get('cpf'), dados.get('rg'), dados.get('telefone'),
+                cpf, dados.get('rg'), dados.get('telefone'),
                 dados.get('quarto'), dados.get('contato_emergencia_nome'),
                 dados.get('contato_emergencia_telefone'),
                 dados.get('contato_emergencia_parentesco'),
@@ -2310,12 +2369,17 @@ def agenda_diaria():
             ORDER BY h.horario, p.nome
         ''', (casa_id_atual(),)).fetchall()
         agenda = {}
+        quartos = set()
         for d in dados:
-            h = d['horario']
+            item = dict(d)
+            if item.get('quarto'):
+                quartos.add(str(item['quarto']).strip())
+            h = item['horario']
             if h not in agenda:
                 agenda[h] = []
-            agenda[h].append(dict(d))
-    return render_template('agenda.html', agenda=agenda)
+            agenda[h].append(item)
+    quartos_lista = sorted(quartos, key=lambda q: (len(q), q))
+    return render_template('agenda.html', agenda=agenda, quartos_lista=quartos_lista)
 
 
 # ============================================================================
