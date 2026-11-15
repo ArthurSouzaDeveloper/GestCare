@@ -31,7 +31,7 @@
         <span class="cpf-campo" data-cpf-aberto="{{ paciente.cpf|formatar_cpf }}">
           <span class="cpf-valor">{{ paciente.cpf|mascarar_cpf }}</span>
           <button type="button" class="cpf-toggle" aria-label="Mostrar CPF">
-            <i class="ti ti-eye" aria-hidden="true"></i>
+            <svg class="ti" aria-hidden="true"><use href="#ti-eye"/></svg>
           </button>
         </span>
       </div>
@@ -79,27 +79,27 @@
 <!-- Ações -->
 <div class="barra-acoes">
   <a href="{{ url_for('editar_paciente', paciente_id=paciente.id) }}"
-     class="botao botao-secundario"><i class="ti ti-edit" aria-hidden="true"></i> Editar</a>
+     class="botao botao-secundario"><svg class="ti" aria-hidden="true"><use href="#ti-edit"/></svg> Editar</a>
   <a href="{{ url_for('index') }}" class="botao botao-secundario">← Voltar</a>
   <form method="POST" action="{{ url_for('excluir_paciente', paciente_id=paciente.id) }}"
         onsubmit="return confirm('Remover este paciente? Todos os dados serão apagados.');"
         style="margin-left:auto">
-    <button type="submit" class="botao botao-perigo botao-pequeno"><i class="ti ti-trash" aria-hidden="true"></i> Remover</button>
+    <button type="submit" class="botao botao-perigo botao-pequeno"><svg class="ti" aria-hidden="true"><use href="#ti-trash"/></svg> Remover</button>
   </form>
 </div>
 
 <!-- Abas de navegação da ficha -->
 <div class="tabs">
-  <span class="tab-item ativo"><i class="ti ti-layout-grid" aria-hidden="true"></i> Resumo</span>
-  <a href="#medicamentos" class="tab-item"><i class="ti ti-pill" aria-hidden="true"></i> Medicações</a>
+  <span class="tab-item ativo"><svg class="ti" aria-hidden="true"><use href="#ti-layout-grid"/></svg> Resumo</span>
+  <a href="#medicamentos" class="tab-item"><svg class="ti" aria-hidden="true"><use href="#ti-pill"/></svg> Medicações</a>
   <a href="{{ url_for('listar_evolucoes', paciente_id=paciente.id) }}" class="tab-item">
-    <i class="ti ti-clipboard-list" aria-hidden="true"></i> Evolução <span style="background:var(--cor-fundo);color:var(--cor-texto-suave);border-radius:20px;padding:0 6px;font-size:11px">{{ total_evolucoes }}</span>
+    <svg class="ti" aria-hidden="true"><use href="#ti-clipboard-list"/></svg> Evolução <span class="contador">{{ total_evolucoes }}</span>
   </a>
   <a href="{{ url_for('listar_exames', paciente_id=paciente.id) }}" class="tab-item">
-    <i class="ti ti-microscope" aria-hidden="true"></i> Documentos <span style="background:var(--cor-fundo);color:var(--cor-texto-suave);border-radius:20px;padding:0 6px;font-size:11px">{{ total_exames }}</span>
+    <svg class="ti" aria-hidden="true"><use href="#ti-microscope"/></svg> Documentos <span class="contador">{{ total_exames }}</span>
   </a>
   <a href="{{ url_for('listar_visitas', paciente_id=paciente.id) }}" class="tab-item">
-    <i class="ti ti-users" aria-hidden="true"></i> Visitas <span style="background:var(--cor-fundo);color:var(--cor-texto-suave);border-radius:20px;padding:0 6px;font-size:11px">{{ total_visitas }}</span>
+    <svg class="ti" aria-hidden="true"><use href="#ti-users"/></svg> Visitas <span class="contador">{{ total_visitas }}</span>
   </a>
 </div>
 
@@ -136,7 +136,7 @@
       {% endfor %}
     </div>
   {% else %}
-    <p style="color:var(--cor-texto-suave);text-align:center;padding:1rem">Nenhuma condição cadastrada.</p>
+    <p class="lista-vazia-linha">Nenhuma condição cadastrada.</p>
   {% endif %}
 </div>
 
@@ -145,53 +145,53 @@
 ══════════════════════════════════════════════════ -->
 <div class="secao">
   <div class="secao-cabecalho">
-    <h2 class="secao-titulo"><i class="ti ti-salad" aria-hidden="true"></i> Comorbidades e Alimentação</h2>
+    <h2 class="secao-titulo"><svg class="ti" aria-hidden="true"><use href="#ti-salad"/></svg> Comorbidades e Alimentação</h2>
     <button class="botao botao-primario botao-pequeno"
             onclick="abrirModal('modal-dieta')">
       {% if dieta %}Editar{% else %}+ Preencher{% endif %}
     </button>
   </div>
   {% if dieta %}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+    <div class="grade-2">
       {% if dieta.comorbidades %}
-      <div class="dado-item" style="grid-column:1/-1">
+      <div class="dado-item campo-largo">
         <div class="dado-label">Comorbidades</div>
-        <div class="dado-valor" style="font-weight:400;font-size:.95rem">{{ dieta.comorbidades }}</div>
+        <div class="dado-valor form-opcao-rotulo">{{ dieta.comorbidades }}</div>
       </div>
       {% endif %}
       {% if dieta.dieta_especifica %}
       <div class="dado-item">
         <div class="dado-label">Dieta Específica</div>
-        <div class="dado-valor" style="font-weight:400;font-size:.95rem">{{ dieta.dieta_especifica }}</div>
+        <div class="dado-valor form-opcao-rotulo">{{ dieta.dieta_especifica }}</div>
       </div>
       {% endif %}
       {% if dieta.consistencia_alimento %}
       <div class="dado-item">
         <div class="dado-label">Consistência</div>
-        <div class="dado-valor" style="font-weight:400;font-size:.95rem">{{ dieta.consistencia_alimento }}</div>
+        <div class="dado-valor form-opcao-rotulo">{{ dieta.consistencia_alimento }}</div>
       </div>
       {% endif %}
       {% if dieta.restricoes_alimentares %}
       <div class="dado-item">
         <div class="dado-label">Restrições Alimentares</div>
-        <div class="dado-valor" style="font-weight:400;font-size:.95rem">{{ dieta.restricoes_alimentares }}</div>
+        <div class="dado-valor form-opcao-rotulo">{{ dieta.restricoes_alimentares }}</div>
       </div>
       {% endif %}
       {% if dieta.alergias_alimentares %}
       <div class="dado-item">
         <div class="dado-label">Alergias Alimentares</div>
-        <div class="dado-valor" style="font-weight:400;font-size:.95rem;color:var(--cor-erro)"><i class="ti ti-alert-triangle" aria-hidden="true"></i> {{ dieta.alergias_alimentares }}</div>
+        <div class="dado-valor form-opcao-rotulo txt-risco"><svg class="ti" aria-hidden="true"><use href="#ti-alert-triangle"/></svg> {{ dieta.alergias_alimentares }}</div>
       </div>
       {% endif %}
       {% if dieta.observacoes_nutricao %}
-      <div class="dado-item" style="grid-column:1/-1">
+      <div class="dado-item campo-largo">
         <div class="dado-label">Observações Nutricionais</div>
-        <div class="dado-valor" style="font-weight:400;font-size:.95rem">{{ dieta.observacoes_nutricao }}</div>
+        <div class="dado-valor form-opcao-rotulo">{{ dieta.observacoes_nutricao }}</div>
       </div>
       {% endif %}
     </div>
   {% else %}
-    <p style="color:var(--cor-texto-suave);text-align:center;padding:1rem">Nenhuma informação de dieta cadastrada.</p>
+    <p class="lista-vazia-linha">Nenhuma informação de dieta cadastrada.</p>
   {% endif %}
 </div>
 
@@ -200,50 +200,50 @@
 ══════════════════════════════════════════════════ -->
 <div class="secao">
   <div class="secao-cabecalho">
-    <h2 class="secao-titulo"><i class="ti ti-brain" aria-hidden="true"></i> Ficha Psicológica</h2>
+    <h2 class="secao-titulo"><svg class="ti" aria-hidden="true"><use href="#ti-brain"/></svg> Ficha Psicológica</h2>
     <button class="botao botao-primario botao-pequeno"
             onclick="abrirModal('modal-psicologico')">
       {% if ficha_psico %}Editar{% else %}+ Preencher{% endif %}
     </button>
   </div>
   {% if ficha_psico %}
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+    <div class="grade-2">
       {% if ficha_psico.antecedentes %}
-      <div class="dado-item" style="grid-column:1/-1">
+      <div class="dado-item campo-largo">
         <div class="dado-label">Antecedentes de Problemas Mentais</div>
-        <div class="dado-valor" style="font-weight:400;font-size:.95rem">{{ ficha_psico.antecedentes }}</div>
+        <div class="dado-valor form-opcao-rotulo">{{ ficha_psico.antecedentes }}</div>
       </div>
       {% endif %}
       {% if ficha_psico.diagnosticos_mentais %}
       <div class="dado-item">
         <div class="dado-label">Diagnósticos Psiquiátricos</div>
-        <div class="dado-valor" style="font-weight:400;font-size:.95rem">{{ ficha_psico.diagnosticos_mentais }}</div>
+        <div class="dado-valor form-opcao-rotulo">{{ ficha_psico.diagnosticos_mentais }}</div>
       </div>
       {% endif %}
       {% if ficha_psico.medicacao_psiquiatrica %}
       <div class="dado-item">
         <div class="dado-label">Medicação Psiquiátrica</div>
-        <div class="dado-valor" style="font-weight:400;font-size:.95rem">{{ ficha_psico.medicacao_psiquiatrica }}</div>
+        <div class="dado-valor form-opcao-rotulo">{{ ficha_psico.medicacao_psiquiatrica }}</div>
       </div>
       {% endif %}
       {% if ficha_psico.comportamento %}
-      <div class="dado-item" style="grid-column:1/-1">
+      <div class="dado-item campo-largo">
         <div class="dado-label">Comportamento Observado</div>
-        <div class="dado-valor" style="font-weight:400;font-size:.95rem">{{ ficha_psico.comportamento }}</div>
+        <div class="dado-valor form-opcao-rotulo">{{ ficha_psico.comportamento }}</div>
       </div>
       {% endif %}
       {% if ficha_psico.observacoes %}
-      <div class="dado-item" style="grid-column:1/-1">
+      <div class="dado-item campo-largo">
         <div class="dado-label">Observações</div>
-        <div class="dado-valor" style="font-weight:400;font-size:.95rem">{{ ficha_psico.observacoes }}</div>
+        <div class="dado-valor form-opcao-rotulo">{{ ficha_psico.observacoes }}</div>
       </div>
       {% endif %}
     </div>
-    <p style="font-size:.75rem;color:var(--cor-texto-suave);margin-top:.75rem">
+    <p class="txt-meta">
       Atualizado em: {{ ficha_psico.atualizado_em[:16] if ficha_psico.atualizado_em else '—' }}
     </p>
   {% else %}
-    <p style="color:var(--cor-texto-suave);text-align:center;padding:1rem">Nenhuma ficha psicológica cadastrada.</p>
+    <p class="lista-vazia-linha">Nenhuma ficha psicológica cadastrada.</p>
   {% endif %}
 </div>
 
@@ -252,7 +252,7 @@
 ══════════════════════════════════════════════════ -->
 <div class="secao">
   <div class="secao-cabecalho">
-    <h2 class="secao-titulo"><i class="ti ti-stethoscope" aria-hidden="true"></i> Profissionais Consultados</h2>
+    <h2 class="secao-titulo"><svg class="ti" aria-hidden="true"><use href="#ti-stethoscope"/></svg> Profissionais Consultados</h2>
     <button class="botao botao-primario botao-pequeno"
             onclick="abrirModal('modal-profissional')">+ Adicionar</button>
   </div>
@@ -280,7 +280,7 @@
       {% endfor %}
     </div>
   {% else %}
-    <p style="color:var(--cor-texto-suave);text-align:center;padding:1rem">Nenhum profissional registrado.</p>
+    <p class="lista-vazia-linha">Nenhum profissional registrado.</p>
   {% endif %}
 </div>
 
@@ -308,7 +308,7 @@
         <div>
           <small style="color:var(--cor-texto-suave);font-weight:700;font-size:.75rem;text-transform:uppercase">Horários:</small>
           <div class="horarios-tags">
-            {% for h in m.horarios %}<span class="horario-tag"><i class="ti ti-clock" aria-hidden="true"></i> {{ h[:5] }}</span>{% endfor %}
+            {% for h in m.horarios %}<span class="horario-tag"><svg class="ti" aria-hidden="true"><use href="#ti-clock"/></svg> {{ h[:5] }}</span>{% endfor %}
           </div>
         </div>
         {% endif %}
@@ -316,25 +316,22 @@
         <div class="medicamento-instrucoes"><strong>Instruções:</strong> {{ m.instrucoes }}</div>
         {% endif %}
         {% if m.eh_antibiotico %}
-        <div style="margin-top:.4rem">
-          <span style="background:#fff5f5;color:var(--cor-erro);border:1px solid var(--cor-erro);
-                       padding:2px 8px;border-radius:20px;font-size:.75rem;font-weight:700">
-            <i class="ti ti-pill" aria-hidden="true"></i> Antibiótico
-            {% if m.dias_restantes_antibiotico is not none %}
-              {% if m.dias_restantes_antibiotico < 0 %}
-                — tratamento encerrado
-              {% elif m.dias_restantes_antibiotico == 0 %}
-                — termina hoje
-              {% else %}
-                — termina em {{ m.dias_restantes_antibiotico }} dia(s)
-              {% endif %}
-            {% endif %}
+        <div class="esp-y-2" style="margin-top:var(--esp-2)">
+          <span class="prazo-tratamento {{
+            'prazo-encerrado' if m.dias_restantes_antibiotico is not none and m.dias_restantes_antibiotico < 0
+            else ('prazo-hoje' if m.dias_restantes_antibiotico == 0 else 'prazo-proximo') }}">
+            <svg class="ti" aria-hidden="true"><use href="#ti-pill"/></svg>
+            Antibiótico{% if m.dias_restantes_antibiotico is not none %}{%
+              if m.dias_restantes_antibiotico < 0 %} · tratamento encerrado{%
+              elif m.dias_restantes_antibiotico == 0 %} · termina hoje{%
+              else %} · termina em {{ m.dias_restantes_antibiotico }} dia{{ 's' if m.dias_restantes_antibiotico != 1 }}{%
+              endif %}{% endif %}
           </span>
         </div>
         {% endif %}
         {% if m.doses_hoje %}
         <div style="font-size:.78rem;color:var(--cor-texto-suave);margin-top:.4rem">
-          <i class="ti ti-check" aria-hidden="true"></i> {{ m.doses_hoje }} dose(s) administrada(s) hoje
+          <svg class="ti" aria-hidden="true"><use href="#ti-check"/></svg> {{ m.doses_hoje }} dose(s) administrada(s) hoje
         </div>
         {% endif %}
         {% if m.ultimas_doses %}
@@ -345,7 +342,7 @@
           <div style="margin-top:.4rem;display:flex;flex-direction:column;gap:.3rem">
             {% for d in m.ultimas_doses %}
             <div style="font-size:.78rem;color:var(--cor-texto-suave);border-left:2px solid var(--cor-primaria);padding-left:.5rem">
-              <i class="ti ti-check" aria-hidden="true"></i> {{ d.horario_administrado[:16] if d.horario_administrado else '—' }}
+              <svg class="ti" aria-hidden="true"><use href="#ti-check"/></svg> {{ d.horario_administrado[:16] if d.horario_administrado else '—' }}
               {% if d.administrado_por %} · por {{ d.administrado_por }}{% endif %}
               {% if d.observacoes %} · {{ d.observacoes }}{% endif %}
             </div>
@@ -355,7 +352,7 @@
         {% endif %}
         <div class="medicamento-acoes">
           <form method="POST" action="{{ url_for('administrar_dose', medicamento_id=m.id) }}">
-            <button type="submit" class="botao botao-primario botao-pequeno"><i class="ti ti-check" aria-hidden="true"></i> Registrar Dose</button>
+            <button type="submit" class="botao botao-primario botao-pequeno"><svg class="ti" aria-hidden="true"><use href="#ti-check"/></svg> Registrar Dose</button>
           </form>
           <form method="POST" action="{{ url_for('excluir_medicamento', medicamento_id=m.id) }}"
                 onsubmit="return confirm('Remover este medicamento?');">
@@ -366,7 +363,7 @@
       {% endfor %}
     </div>
   {% else %}
-    <p style="color:var(--cor-texto-suave);text-align:center;padding:1rem">Nenhum medicamento cadastrado.</p>
+    <p class="lista-vazia-linha">Nenhum medicamento cadastrado.</p>
   {% endif %}
 </div>
 
@@ -466,13 +463,13 @@
         <label class="form-label" style="display:flex;align-items:center;gap:.5rem;cursor:pointer">
           <input type="checkbox" name="eh_antibiotico" value="1"
                  onchange="document.getElementById('campo-fim-tratamento').style.display = this.checked ? 'block' : 'none'">
-          <i class="ti ti-pill" aria-hidden="true"></i> Este medicamento é um antibiótico
+          <svg class="ti" aria-hidden="true"><use href="#ti-pill"/></svg> Este medicamento é um antibiótico
         </label>
       </div>
-      <div class="form-grupo" id="campo-fim-tratamento" style="display:none">
+      <div class="form-grupo" id="campo-fim-tratamento" hidden>
         <label class="form-label">Data de Término do Tratamento</label>
         <input type="date" name="data_fim_tratamento" class="form-input">
-        <small style="color:var(--cor-texto-suave)">Você será alertado quando o tratamento estiver próximo do fim.</small>
+        <small class="txt-apoio">Você será alertado quando o tratamento estiver próximo do fim.</small>
       </div>
       <div class="form-botoes">
         <button type="submit" class="botao botao-primario">Adicionar Medicamento</button>
@@ -487,7 +484,7 @@
   <div class="modal-conteudo">
     <div class="modal-alca"></div>
     <div class="modal-cabecalho">
-      <h3 class="modal-titulo"><i class="ti ti-brain" aria-hidden="true"></i> Ficha Psicológica</h3>
+      <h3 class="modal-titulo"><svg class="ti" aria-hidden="true"><use href="#ti-brain"/></svg> Ficha Psicológica</h3>
       <button class="modal-fechar" onclick="fecharModal('modal-psicologico')" type="button">×</button>
     </div>
     <form method="POST" action="{{ url_for('salvar_psicologico', paciente_id=paciente.id) }}">
@@ -530,7 +527,7 @@
   <div class="modal-conteudo">
     <div class="modal-alca"></div>
     <div class="modal-cabecalho">
-      <h3 class="modal-titulo"><i class="ti ti-stethoscope" aria-hidden="true"></i> Profissional Consultado</h3>
+      <h3 class="modal-titulo"><svg class="ti" aria-hidden="true"><use href="#ti-stethoscope"/></svg> Profissional Consultado</h3>
       <button class="modal-fechar" onclick="fecharModal('modal-profissional')" type="button">×</button>
     </div>
     <form method="POST" action="{{ url_for('novo_profissional', paciente_id=paciente.id) }}">
@@ -567,7 +564,7 @@
   <div class="modal-conteudo">
     <div class="modal-alca"></div>
     <div class="modal-cabecalho">
-      <h3 class="modal-titulo"><i class="ti ti-salad" aria-hidden="true"></i> Comorbidades e Alimentação</h3>
+      <h3 class="modal-titulo"><svg class="ti" aria-hidden="true"><use href="#ti-salad"/></svg> Comorbidades e Alimentação</h3>
       <button class="modal-fechar" onclick="fecharModal('modal-dieta')" type="button">×</button>
     </div>
     <form method="POST" action="{{ url_for('salvar_dieta', paciente_id=paciente.id) }}">
@@ -601,7 +598,7 @@
                value="{{ dieta.restricoes_alimentares if dieta else '' }}">
       </div>
       <div class="form-grupo">
-        <label class="form-label"><i class="ti ti-alert-triangle" aria-hidden="true"></i> Alergias Alimentares</label>
+        <label class="form-label"><svg class="ti" aria-hidden="true"><use href="#ti-alert-triangle"/></svg> Alergias Alimentares</label>
         <input type="text" name="alergias_alimentares" class="form-input"
                placeholder="Ex: Amendoim, Frutos do mar, Leite..."
                value="{{ dieta.alergias_alimentares if dieta else '' }}">
