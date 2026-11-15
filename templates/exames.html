@@ -3,9 +3,9 @@
 
 {% block conteudo %}
 
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;gap:1rem;flex-wrap:wrap">
+<div class="fileira-entre esp-y-4">
   <div>
-    <h1 class="titulo-pagina"><i class="ti ti-microscope" aria-hidden="true"></i> Resultados de Exames</h1>
+    <h1 class="titulo-pagina"><svg class="ti" aria-hidden="true"><use href="#ti-microscope"/></svg> Resultados de Exames</h1>
     <p class="subtitulo">{{ paciente.nome }}</p>
   </div>
   <button class="botao botao-primario botao-pequeno"
@@ -13,11 +13,11 @@
 </div>
 
 <div class="tabs">
-  <a href="{{ url_for('detalhe_paciente', paciente_id=paciente.id) }}" class="tab-item"><i class="ti ti-layout-grid" aria-hidden="true"></i> Resumo</a>
-  <a href="{{ url_for('detalhe_paciente', paciente_id=paciente.id) }}#medicamentos" class="tab-item"><i class="ti ti-pill" aria-hidden="true"></i> Medicações</a>
-  <a href="{{ url_for('listar_evolucoes', paciente_id=paciente.id) }}" class="tab-item"><i class="ti ti-clipboard-list" aria-hidden="true"></i> Evolução</a>
-  <span class="tab-item ativo"><i class="ti ti-microscope" aria-hidden="true"></i> Documentos</span>
-  <a href="{{ url_for('listar_visitas', paciente_id=paciente.id) }}" class="tab-item"><i class="ti ti-users" aria-hidden="true"></i> Visitas</a>
+  <a href="{{ url_for('detalhe_paciente', paciente_id=paciente.id) }}" class="tab-item"><svg class="ti" aria-hidden="true"><use href="#ti-layout-grid"/></svg> Resumo</a>
+  <a href="{{ url_for('detalhe_paciente', paciente_id=paciente.id) }}#medicamentos" class="tab-item"><svg class="ti" aria-hidden="true"><use href="#ti-pill"/></svg> Medicações</a>
+  <a href="{{ url_for('listar_evolucoes', paciente_id=paciente.id) }}" class="tab-item"><svg class="ti" aria-hidden="true"><use href="#ti-clipboard-list"/></svg> Evolução</a>
+  <span class="tab-item ativo"><svg class="ti" aria-hidden="true"><use href="#ti-microscope"/></svg> Documentos</span>
+  <a href="{{ url_for('listar_visitas', paciente_id=paciente.id) }}" class="tab-item"><svg class="ti" aria-hidden="true"><use href="#ti-users"/></svg> Visitas</a>
 </div>
 
 {% if exames %}
@@ -25,7 +25,7 @@
     {% for e in exames %}
     <div class="secao" style="padding:1rem">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.75rem">
-        <div style="flex:1">
+        <div class="cresce">
           <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:.4rem">
             <strong style="font-size:1rem">{{ e.tipo_exame }}</strong>
             <span style="background:var(--cor-primaria-clara);color:var(--cor-primaria-escura);
@@ -34,8 +34,8 @@
             </span>
           </div>
           <div style="font-size:.85rem;color:var(--cor-texto-suave);margin-bottom:.5rem">
-            {% if e.laboratorio %}<i class="ti ti-building-hospital" aria-hidden="true"></i> {{ e.laboratorio }}{% endif %}
-            {% if e.medico_solicitante %} · <i class="ti ti-stethoscope" aria-hidden="true"></i> Dr(a). {{ e.medico_solicitante }}{% endif %}
+            {% if e.laboratorio %}<svg class="ti" aria-hidden="true"><use href="#ti-building-hospital"/></svg> {{ e.laboratorio }}{% endif %}
+            {% if e.medico_solicitante %} · <svg class="ti" aria-hidden="true"><use href="#ti-stethoscope"/></svg> Dr(a). {{ e.medico_solicitante }}{% endif %}
           </div>
           {% if e.resultado %}
           <div style="background:var(--cor-fundo);border-radius:var(--raio-xs);
@@ -62,7 +62,7 @@
           {% if e.arquivo_nome %}
           <div style="margin-top:.5rem">
             <a href="{{ url_for('servir_exame', nome_arquivo=e.arquivo_nome) }}"
-               target="_blank" class="botao botao-secundario botao-pequeno"><i class="ti ti-paperclip" aria-hidden="true"></i> Ver documento anexado</a>
+               target="_blank" class="botao botao-secundario botao-pequeno"><svg class="ti" aria-hidden="true"><use href="#ti-paperclip"/></svg> Ver documento anexado</a>
           </div>
           {% endif %}
         </div>
@@ -76,7 +76,7 @@
   </div>
 {% else %}
   <div class="vazio">
-    <span class="vazio-icone"><i class="ti ti-microscope" aria-hidden="true"></i></span>
+    <span class="vazio-icone"><svg class="ti" aria-hidden="true"><use href="#ti-microscope"/></svg></span>
     <h2 class="vazio-titulo">Nenhum exame registrado</h2>
     <p class="vazio-texto">Registre os resultados de exames médicos do paciente.</p>
     <button class="botao botao-primario" onclick="abrirModal('modal-exame')">
@@ -131,14 +131,14 @@
                   placeholder="Notas internas da equipe. A família não vê este campo."></textarea>
       </div>
       <div class="form-grupo">
-        <label class="form-label"><i class="ti ti-users" aria-hidden="true"></i> Recado para a família</label>
+        <label class="form-label"><svg class="ti" aria-hidden="true"><use href="#ti-users"/></svg> Recado para a família</label>
         <textarea name="observacao_familia" class="form-textarea" rows="2"
                   placeholder="Aparece no portal do responsável junto com o resultado. Ex: repetir em 30 dias, jejum de 8h."></textarea>
       </div>
       <div class="form-grupo">
-        <label class="form-label"><i class="ti ti-paperclip" aria-hidden="true"></i> Anexar Documento</label>
+        <label class="form-label"><svg class="ti" aria-hidden="true"><use href="#ti-paperclip"/></svg> Anexar Documento</label>
         <input type="file" name="arquivo" class="form-input" accept=".pdf,.png,.jpg,.jpeg,.webp">
-        <small style="color:var(--cor-texto-suave)">Formatos aceitos: PDF, JPG, PNG, WEBP</small>
+        <small class="txt-apoio">Formatos aceitos: PDF, JPG, PNG, WEBP</small>
       </div>
       <div class="form-botoes">
         <button type="submit" class="botao botao-primario">Salvar Exame</button>

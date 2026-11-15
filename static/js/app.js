@@ -1,39 +1,63 @@
 // ── MODAIS ────────────────────────────────────────────────
+// Diálogo acessível: foco preso dentro, Esc fecha, foco volta
+// para quem abriu. O véu não rola a página atrás.
+let _modalAberto = null;
+let _disparador  = null;
+
+const FOCAVEIS = 'a[href], button:not([disabled]), input:not([disabled]), ' +
+                 'select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 function abrirModal(id) {
   const modal = document.getElementById(id);
   if (!modal) return;
+  _disparador = document.activeElement;
+  _modalAberto = modal;
+
+  const caixa = modal.querySelector('.modal-conteudo');
+  if (caixa) {
+    caixa.setAttribute('role', 'dialog');
+    caixa.setAttribute('aria-modal', 'true');
+    const titulo = caixa.querySelector('.modal-titulo');
+    if (titulo) {
+      if (!titulo.id) titulo.id = id + '-titulo';
+      caixa.setAttribute('aria-labelledby', titulo.id);
+    }
+  }
+
   modal.classList.add('ativo');
   document.body.style.overflow = 'hidden';
-  // Foca o primeiro campo para facilitar digitação no celular
-  setTimeout(() => {
-    const primeiro = modal.querySelector('input, select, textarea');
-    if (primeiro) primeiro.focus();
-  }, 300);
+
+  const primeiro = modal.querySelector('input, select, textarea') ||
+                   modal.querySelector(FOCAVEIS);
+  if (primeiro) primeiro.focus({ preventScroll: true });
 }
 
 function fecharModal(id) {
-  const modal = document.getElementById(id);
+  const modal = id ? document.getElementById(id) : _modalAberto;
   if (!modal) return;
   modal.classList.remove('ativo');
   document.body.style.overflow = '';
+  if (_disparador && document.contains(_disparador)) _disparador.focus();
+  _disparador = null;
+  _modalAberto = null;
 }
 
-// Fechar clicando fora do conteúdo
+// Fechar clicando no véu
 document.addEventListener('click', e => {
-  if (e.target.classList.contains('modal')) {
-    e.target.classList.remove('ativo');
-    document.body.style.overflow = '';
-  }
+  if (e.target.classList.contains('modal')) fecharModal(e.target.id);
 });
 
-// Fechar com ESC
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    document.querySelectorAll('.modal.ativo').forEach(m => {
-      m.classList.remove('ativo');
-    });
-    document.body.style.overflow = '';
-  }
+  if (!_modalAberto) return;
+  if (e.key === 'Escape') { fecharModal(); return; }
+  if (e.key !== 'Tab') return;
+  // Foco preso: Tab circula só dentro do diálogo.
+  const itens = Array.from(_modalAberto.querySelectorAll(FOCAVEIS))
+                     .filter(el => el.offsetParent !== null);
+  if (!itens.length) return;
+  const primeiro = itens[0], ultimo = itens[itens.length - 1];
+  if (e.shiftKey && document.activeElement === primeiro) { e.preventDefault(); ultimo.focus(); }
+  else if (!e.shiftKey && document.activeElement === ultimo) { e.preventDefault(); primeiro.focus(); }
 });
 
 // ── HORÁRIOS DINÂMICOS ───────────────────────────────────
@@ -84,19 +108,22 @@ function formatarTelefone(input) {
 }
 
 // ── TOAST / SNACKBAR ─────────────────────────────────────
+// Região live: o leitor de tela anuncia sem roubar o foco.
 function mostrarToast(mensagem, tipo) {
   let toast = document.getElementById('_toast');
   if (!toast) {
     toast = document.createElement('div');
     toast.id = '_toast';
     toast.className = 'toast';
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
     document.body.appendChild(toast);
   }
   toast.textContent = mensagem;
-  toast.style.background = tipo === 'erro' ? 'var(--cor-erro)' : '#1f2937';
+  toast.classList.toggle('toast-erro', tipo === 'erro');
   toast.classList.add('visivel');
   clearTimeout(toast._t);
-  toast._t = setTimeout(() => toast.classList.remove('visivel'), 3000);
+  toast._t = setTimeout(() => toast.classList.remove('visivel'), 4000);
 }
 
 // Valida CPF pelos dois dígitos verificadores (mesma regra do servidor)
@@ -232,3 +259,137 @@ async function ativarNotificacoes(silencioso) {
     if (!silencioso) mostrarToast('Não foi possível ativar as notificações.', 'erro');
   }
 }
+// ══════════════════════════════════════════════════════════
+// MENU DE CONTA
+// Perfil, lembretes, tema e sair. Um por viewport; abre com
+// clique, fecha com Esc, clique fora ou troca de foco.
+// ══════════════════════════════════════════════════════════
+(function () {
+  const pares = [
+    ['conta-topo',    'menu-conta-topo'],
+    ['conta-sidebar', 'menu-conta-sidebar'],
+    ['conta-mobile',  'menu-conta-mobile'],
+  ];
+
+  function fechar(botao, menu) {
+    menu.hidden = true;
+    botao.setAttribute('aria-expanded', 'false');
+  }
+
+  function fecharTodos(exceto) {
+    pares.forEach(([bid, mid]) => {
+      const b = document.getElementById(bid), m = document.getElementById(mid);
+      if (b && m && m !== exceto) fechar(b, m);
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    pares.forEach(([bid, mid]) => {
+      const botao = document.getElementById(bid);
+      const menu  = document.getElementById(mid);
+      if (!botao || !menu) return;
+
+      botao.addEventListener('click', e => {
+        e.stopPropagation();
+        const abrindo = menu.hidden;
+        fecharTodos(menu);
+        menu.hidden = !abrindo;
+        botao.setAttribute('aria-expanded', String(abrindo));
+        if (abrindo) {
+          const primeiro = menu.querySelector('a, button');
+          if (primeiro) primeiro.focus({ preventScroll: true });
+        }
+      });
+
+      menu.addEventListener('click', e => e.stopPropagation());
+
+      menu.addEventListener('keydown', e => {
+        if (e.key === 'Escape') { fechar(botao, menu); botao.focus(); }
+      });
+    });
+
+    document.addEventListener('click', () => fecharTodos(null));
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') fecharTodos(null); });
+  });
+})();
+
+// ══════════════════════════════════════════════════════════
+// TEMA — claro, escuro ou o do sistema, com persistência.
+// A escolha é aplicada antes da primeira pintura pelo script
+// de partials/_cabeca.html; aqui só tratamos a troca.
+// ══════════════════════════════════════════════════════════
+(function () {
+  const CHAVE = 'gestcare-tema';
+
+  function lerPreferencia() {
+    try { return localStorage.getItem(CHAVE) || 'sistema'; }
+    catch (e) { return 'sistema'; }
+  }
+
+  function aplicar(valor) {
+    if (valor === 'claro' || valor === 'escuro') {
+      document.documentElement.setAttribute('data-tema', valor);
+    } else {
+      document.documentElement.removeAttribute('data-tema');
+    }
+    try {
+      if (valor === 'sistema') localStorage.removeItem(CHAVE);
+      else localStorage.setItem(CHAVE, valor);
+    } catch (e) { /* armazenamento bloqueado: vale só nesta aba */ }
+    marcar(valor);
+  }
+
+  function marcar(valor) {
+    document.querySelectorAll('[data-seletor-tema] .seletor-tema-opcao').forEach(b => {
+      b.setAttribute('aria-pressed', String(b.dataset.temaValor === valor));
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    marcar(lerPreferencia());
+    document.querySelectorAll('[data-seletor-tema] .seletor-tema-opcao').forEach(botao => {
+      botao.addEventListener('click', () => {
+        aplicar(botao.dataset.temaValor);
+        mostrarToast('Tema ' + ({
+          claro: 'claro', escuro: 'escuro', sistema: 'do sistema'
+        })[botao.dataset.temaValor] + ' aplicado.');
+      });
+    });
+  });
+})();
+
+// ══════════════════════════════════════════════════════════
+// ENVIO DE FORMULÁRIO
+// Um formulário longo não pode ser enviado duas vezes: o botão
+// entra em estado de envio e só volta se o navegador restaurar
+// a página do cache.
+// ══════════════════════════════════════════════════════════
+(function () {
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('form[method="POST"], form[method="post"]').forEach(form => {
+      form.addEventListener('submit', () => {
+        if (form.dataset.enviando === '1') return;
+        if (typeof form.checkValidity === 'function' && !form.checkValidity()) return;
+        form.dataset.enviando = '1';
+        form.querySelectorAll('button[type="submit"], button:not([type])').forEach(botao => {
+          botao.classList.add('botao-enviando');
+          botao.setAttribute('aria-busy', 'true');
+          botao.disabled = true;
+        });
+      });
+    });
+  });
+
+  // Voltar pelo histórico devolve o formulário utilizável.
+  window.addEventListener('pageshow', e => {
+    if (!e.persisted) return;
+    document.querySelectorAll('form[data-enviando="1"]').forEach(form => {
+      form.dataset.enviando = '0';
+      form.querySelectorAll('button[aria-busy="true"]').forEach(botao => {
+        botao.classList.remove('botao-enviando');
+        botao.removeAttribute('aria-busy');
+        botao.disabled = false;
+      });
+    });
+  });
+})();

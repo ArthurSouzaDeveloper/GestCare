@@ -1,5 +1,5 @@
 /* Service Worker — cache para funcionamento offline */
-const CACHE = 'casa-idosos-v2';
+const CACHE = 'gestcare-v3';
 const ASSETS = [
   '/',
   '/agenda',

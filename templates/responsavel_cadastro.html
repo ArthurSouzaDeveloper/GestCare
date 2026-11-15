@@ -12,9 +12,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ versao_assets }}">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
 </head>
 <body style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem">
+{% include 'partials/_icones.html' %}
 
 <div style="width:100%;max-width:420px">
   {% with mensagens = get_flashed_messages(with_categories=true) %}
@@ -26,25 +26,25 @@
   {% endwith %}
 
   <div class="formulario">
-    <div style="text-align:center;margin-bottom:1.5rem">
+    <div class="txt-centro esp-y-6">
       <div style="display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;background:var(--cor-primaria);border-radius:14px;margin-bottom:.5rem">
-        <i class="ti ti-heartbeat" style="font-size:1.6rem;color:#fff" aria-hidden="true"></i>
+        <svg class="ti ti-lg" aria-hidden="true"><use href="#ti-heartbeat"/></svg>
       </div>
       <h1 style="font-family:var(--fonte-titulo);font-size:1.6rem;color:var(--cor-primaria-escura);margin-bottom:.25rem">Cadastro do Responsável</h1>
-      <p style="color:var(--cor-texto-suave);font-size:.9rem">Crie sua própria conta para acompanhar o idoso</p>
+      <p class="txt-apoio">Crie sua própria conta para acompanhar o idoso</p>
     </div>
 
     <form method="POST">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       {% if casa_preselecionar %}
       <div class="form-grupo" style="background:var(--cor-fundo);border:1px solid var(--cor-borda);border-radius:10px;padding:.75rem 1rem;display:flex;align-items:center;gap:.5rem">
-        <i class="ti ti-building-community" style="color:var(--cor-primaria);font-size:1.1rem" aria-hidden="true"></i>
+        <svg class="ti" aria-hidden="true"><use href="#ti-building-community"/></svg>
         <span style="font-weight:700;color:var(--cor-texto)">{{ casa_preselecionar.nome }}</span>
       </div>
       <input type="hidden" name="casa_id" value="{{ casa_preselecionar.id }}">
       {% else %}
       <div class="form-grupo">
-        <label class="form-label" for="casa_id"><i class="ti ti-building-community" aria-hidden="true"></i> Em qual casa seu familiar está? <span class="form-obrigatorio">*</span></label>
+        <label class="form-label" for="casa_id"><svg class="ti" aria-hidden="true"><use href="#ti-building-community"/></svg> Em qual casa seu familiar está? <span class="form-obrigatorio">*</span></label>
         <select id="casa_id" name="casa_id" class="form-input" required>
           <option value="">— Selecione a instituição —</option>
           {% for c in casas %}
@@ -81,8 +81,8 @@
         <input type="password" id="confirmar_senha" name="confirmar_senha" class="form-input" required
                minlength="6" placeholder="Repita a senha">
       </div>
-      <div class="form-botoes" style="margin-top:1.25rem">
-        <button type="submit" class="botao botao-primario" style="width:100%">Criar minha conta</button>
+      <div class="form-botoes esp-y-5">
+        <button type="submit" class="botao botao-primario botao-bloco">Criar minha conta</button>
       </div>
     </form>
 
