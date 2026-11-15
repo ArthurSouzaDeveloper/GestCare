@@ -3,9 +3,9 @@
 
 {% block conteudo %}
 
-<div class="page-header-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;gap:1rem;flex-wrap:wrap">
+<div class="page-header-row fileira-entre esp-y-4">
   <div>
-    <h1 class="titulo-pagina"><i class="ti ti-users" aria-hidden="true"></i> Visitas de Familiares</h1>
+    <h1 class="titulo-pagina"><svg class="ti" aria-hidden="true"><use href="#ti-users"/></svg> Visitas de Familiares</h1>
     <p class="subtitulo">{{ paciente.nome }}</p>
   </div>
   <button class="botao botao-primario botao-pequeno"
@@ -13,27 +13,27 @@
 </div>
 
 <div class="tabs">
-  <a href="{{ url_for('detalhe_paciente', paciente_id=paciente.id) }}" class="tab-item"><i class="ti ti-layout-grid" aria-hidden="true"></i> Resumo</a>
-  <a href="{{ url_for('detalhe_paciente', paciente_id=paciente.id) }}#medicamentos" class="tab-item"><i class="ti ti-pill" aria-hidden="true"></i> Medicações</a>
-  <a href="{{ url_for('listar_evolucoes', paciente_id=paciente.id) }}" class="tab-item"><i class="ti ti-clipboard-list" aria-hidden="true"></i> Evolução</a>
-  <a href="{{ url_for('listar_exames', paciente_id=paciente.id) }}" class="tab-item"><i class="ti ti-microscope" aria-hidden="true"></i> Documentos</a>
-  <span class="tab-item ativo"><i class="ti ti-users" aria-hidden="true"></i> Visitas</span>
+  <a href="{{ url_for('detalhe_paciente', paciente_id=paciente.id) }}" class="tab-item"><svg class="ti" aria-hidden="true"><use href="#ti-layout-grid"/></svg> Resumo</a>
+  <a href="{{ url_for('detalhe_paciente', paciente_id=paciente.id) }}#medicamentos" class="tab-item"><svg class="ti" aria-hidden="true"><use href="#ti-pill"/></svg> Medicações</a>
+  <a href="{{ url_for('listar_evolucoes', paciente_id=paciente.id) }}" class="tab-item"><svg class="ti" aria-hidden="true"><use href="#ti-clipboard-list"/></svg> Evolução</a>
+  <a href="{{ url_for('listar_exames', paciente_id=paciente.id) }}" class="tab-item"><svg class="ti" aria-hidden="true"><use href="#ti-microscope"/></svg> Documentos</a>
+  <span class="tab-item ativo"><svg class="ti" aria-hidden="true"><use href="#ti-users"/></svg> Visitas</span>
 </div>
 
 {% if visitas %}
   <div class="secao">
     {% for v in visitas %}
-    <div style="padding:.9rem 0;border-bottom:1px solid var(--cor-borda);display:flex;align-items:flex-start;gap:1rem">
+    <div class="item-linha">
       <div style="background:var(--cor-primaria-clara);color:var(--cor-primaria-escura);
                   border-radius:50%;width:42px;height:42px;display:flex;align-items:center;
-                  justify-content:center;font-size:1.2rem;flex-shrink:0"><i class="ti ti-user" aria-hidden="true"></i></div>
-      <div style="flex:1">
+                  justify-content:center;font-size:1.2rem;flex-shrink:0"><svg class="ti" aria-hidden="true"><use href="#ti-user"/></svg></div>
+      <div class="cresce">
         <div style="font-weight:700;font-size:1rem">{{ v.visitante_nome }}</div>
         {% if v.visitante_parentesco %}
-          <div style="font-size:.85rem;color:var(--cor-texto-suave)">{{ v.visitante_parentesco }}</div>
+          <div class="txt-meta">{{ v.visitante_parentesco }}</div>
         {% endif %}
-        <div style="font-size:.85rem;color:var(--cor-texto-suave);margin-top:.25rem">
-          <i class="ti ti-calendar" aria-hidden="true"></i> {{ v.data_visita }}
+        <div class="txt-meta">
+          <svg class="ti" aria-hidden="true"><use href="#ti-calendar"/></svg> {{ v.data_visita }}
           {% if v.hora_entrada %} · Entrada: {{ v.hora_entrada }}{% endif %}
           {% if v.hora_saida %} · Saída: {{ v.hora_saida }}{% endif %}
         </div>
@@ -57,7 +57,7 @@
   </div>
 {% else %}
   <div class="vazio">
-    <span class="vazio-icone"><i class="ti ti-users" aria-hidden="true"></i></span>
+    <span class="vazio-icone"><svg class="ti" aria-hidden="true"><use href="#ti-users"/></svg></span>
     <h2 class="vazio-titulo">Nenhuma visita registrada</h2>
     <p class="vazio-texto">Registre as visitas dos familiares ao paciente.</p>
     <button class="botao botao-primario" onclick="abrirModal('modal-visita')">

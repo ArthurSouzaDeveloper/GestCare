@@ -2,9 +2,9 @@
 {% block titulo %}Casas{% endblock %}
 
 {% block conteudo %}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
+<div class="fileira-entre esp-y-6">
   <div>
-    <h1 class="titulo-pagina"><i class="ti ti-building-community" aria-hidden="true"></i> Casas Cadastradas</h1>
+    <h1 class="titulo-pagina"><svg class="ti" aria-hidden="true"><use href="#ti-building-community"/></svg> Casas Cadastradas</h1>
     <p class="subtitulo">Gerencie as instituições que usam o GestCare</p>
   </div>
   <a href="{{ url_for('nova_casa') }}" class="botao botao-primario">+ Nova Casa</a>
@@ -22,7 +22,7 @@
                          padding:1px 8px;border-radius:20px;font-size:.72rem;font-weight:700;margin-left:6px">DESATIVADA</span>
           {% endif %}
         </div>
-        <div style="font-size:.85rem;color:var(--cor-texto-suave);margin-top:.25rem">
+        <div class="txt-meta">
           {{ c.total_pacientes }} paciente(s) · {{ c.total_usuarios }} usuário(s) ativos
         </div>
         {% if c.slug %}
@@ -30,7 +30,7 @@
           <code id="link-{{ c.id }}" style="font-size:.78rem;background:var(--cor-fundo);border:1px solid var(--cor-borda);border-radius:6px;padding:2px 8px;color:var(--cor-primaria)">{{ request.host_url.rstrip('/') }}/entrar/{{ c.slug }}</code>
           <button type="button" onclick="copiarLink('{{ c.id }}', '{{ request.host_url.rstrip('/') }}/entrar/{{ c.slug }}')"
                   class="botao botao-secundario botao-pequeno" style="font-size:.75rem;padding:2px 10px">
-            <i class="ti ti-copy" aria-hidden="true"></i> Copiar
+            <svg class="ti" aria-hidden="true"><use href="#ti-copy"/></svg> Copiar
           </button>
         </div>
         {% endif %}
@@ -49,7 +49,7 @@
   </div>
 {% else %}
   <div class="vazio">
-    <span class="vazio-icone"><i class="ti ti-building-community" aria-hidden="true"></i></span>
+    <span class="vazio-icone"><svg class="ti" aria-hidden="true"><use href="#ti-building-community"/></svg></span>
     <h2 class="vazio-titulo">Nenhuma casa cadastrada</h2>
     <p class="vazio-texto">Cadastre a primeira instituição para começar.</p>
     <a href="{{ url_for('nova_casa') }}" class="botao botao-primario">+ Cadastrar Casa</a>
@@ -80,7 +80,7 @@
   transform: translateX(-50%) translateY(0);
 }
 </style>
-<div id="toast-copiado"><i class="ti ti-check"></i> Link copiado!</div>
+<div id="toast-copiado"><svg class="ti" aria-hidden="true"><use href="#ti-check"/></svg> Link copiado!</div>
 <script>
 function copiarLink(id, url) {
   var btn = event.target.closest('button');
@@ -97,7 +97,7 @@ function copiarLink(id, url) {
   try { document.execCommand('copy'); } catch(e) {}
   document.body.removeChild(el);
 
-  btn.innerHTML = '<i class="ti ti-check" aria-hidden="true"></i> Copiado!';
+  btn.innerHTML = '<svg class="ti" aria-hidden="true"><use href="#ti-check"/></svg> Copiado!';
   setTimeout(function() { btn.innerHTML = original; }, 2000);
 
   var toast = document.getElementById('toast-copiado');
