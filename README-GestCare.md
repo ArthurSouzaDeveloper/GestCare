@@ -57,7 +57,7 @@ Acesse em `http://localhost:5000`
 
 O Repositório (menu do admin) guarda foto do documento e do rosto de idosos e
 responsáveis. Para ligar a comparação facial e a leitura do CPF no documento,
-instale os pacotes opcionais (~350 MB, tudo roda localmente):
+instale os pacotes opcionais (~540 MB, tudo roda localmente; em Linux sem interface gráfica instale antes `libgl1` e `libglib2.0-0`):
 
 ```bash
 pip install -r requirements-verificacao.txt

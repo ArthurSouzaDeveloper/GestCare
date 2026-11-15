@@ -5,7 +5,9 @@
 #   pip install -r requirements-verificacao.txt
 #
 # Tudo roda localmente; nenhum pacote envia imagem para fora.
-# Tamanho aproximado instalado: ~350 MB (modelos do dlib ~130 MB, onnxruntime e OpenCV).
+# Tamanho instalado: ~540 MB (modelos do dlib ~125 MB, OpenCV ~190 MB, onnxruntime ~80 MB).
+# Memória: ~400 MB de pico durante uma análise. Em Linux sem interface gráfica instale
+# antes as bibliotecas do sistema: sudo apt install libgl1 libglib2.0-0
 
 numpy>=1.26
 pillow>=10.0

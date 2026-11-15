@@ -202,8 +202,15 @@ class MotorRapidOCR(MotorOCR):
         self._ocr = None
 
     def disponivel(self):
+        # Importa de verdade: o pacote pode estar instalado e ainda assim falhar
+        # (ex.: o opencv exige libGL no sistema). Assim o aviso da tela não mente.
         if self._pronto is None:
-            self._pronto = importlib.util.find_spec('rapidocr_onnxruntime') is not None
+            try:
+                from rapidocr_onnxruntime import RapidOCR  # noqa: F401
+                self._pronto = True
+            except Exception as exc:
+                log.warning('ocr_indisponivel: %s: %s', type(exc).__name__, exc)
+                self._pronto = False
         return self._pronto
 
     def ler_texto(self, caminho):
