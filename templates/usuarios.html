@@ -46,14 +46,14 @@
           <button type="submit" class="btn-icone {{ 'btn-icone-perigo' if u.ativo else 'btn-icone-ok' }}"
                   title="{{ 'Desativar' if u.ativo else 'Ativar' }} {{ u.nome }}"
                   aria-label="{{ 'Desativar' if u.ativo else 'Ativar' }} {{ u.nome }}">
-            <i class="ti {{ 'ti-user-off' if u.ativo else 'ti-user-check' }}" aria-hidden="true"></i>
+            <svg class="ti" aria-hidden="true"><use href="#ti-{{ 'user-off' if u.ativo else 'user-check' }}"/></svg>
           </button>
         </form>
         <form method="POST" action="{{ url_for('excluir_usuario', usuario_id=u.id) }}"
               onsubmit="return confirm('Excluir permanentemente {{ u.nome }}? Esta ação não pode ser desfeita.')">
           <button type="submit" class="btn-icone btn-icone-perigo"
                   title="Excluir {{ u.nome }}" aria-label="Excluir {{ u.nome }}">
-            <i class="ti ti-trash" aria-hidden="true"></i>
+            <svg class="ti" aria-hidden="true"><use href="#ti-trash"/></svg>
           </button>
         </form>
         {% endif %}

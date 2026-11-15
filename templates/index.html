@@ -3,62 +3,96 @@
 
 {% block conteudo %}
 
+{# ── ALERTA CLÍNICO ───────────────────────────────────────────────────
+   Primeiro bloco da página, acima do título: é o que impede erro de
+   medicação. Cada prazo carrega cor, ícone e palavra. ─────────────── #}
 {% if alertas_antibiotico %}
-<div class="secao" style="border-left:4px solid var(--cor-erro);background:#fff5f5;margin-bottom:1rem">
-  <h2 class="secao-titulo" style="margin-bottom:.5rem"><i class="ti ti-pill" aria-hidden="true"></i> Lembrete de Antibiótico</h2>
-  {% for a in alertas_antibiotico %}
-  <div style="padding:.5rem 0;border-bottom:1px solid var(--cor-borda)">
-    <a href="{{ url_for('detalhe_paciente', paciente_id=a.paciente_id) }}" style="font-weight:700">{{ a.paciente_nome }}</a>
-    — {{ a.nome }}
-    {% if a.dias_restantes is not none %}
-      {% if a.dias_restantes < 0 %}
-        <span style="color:var(--cor-erro);font-weight:600">tratamento encerrado há {{ -a.dias_restantes }} dia(s)</span>
-      {% elif a.dias_restantes == 0 %}
-        <span style="color:var(--cor-erro);font-weight:600">termina hoje</span>
-      {% else %}
-        <span style="color:var(--cor-erro);font-weight:600">termina em {{ a.dias_restantes }} dia(s)</span>
+<section class="alerta-clinico" aria-labelledby="alerta-antibiotico-titulo">
+  <h2 class="alerta-clinico-cabecalho" id="alerta-antibiotico-titulo">
+    <svg class="ti" aria-hidden="true"><use href="#ti-urgent"/></svg>
+    Antibiótico em fim de ciclo
+  </h2>
+  <div class="alerta-clinico-lista">
+    {% for a in alertas_antibiotico %}
+    <div class="alerta-clinico-item">
+      <a href="{{ url_for('detalhe_paciente', paciente_id=a.paciente_id) }}"
+         class="alerta-clinico-paciente">{{ a.paciente_nome }}</a>
+      <span class="alerta-clinico-detalhe">{{ a.nome }}</span>
+      {% if a.dias_restantes is not none %}
+        {% if a.dias_restantes < 0 %}
+          <span class="prazo-tratamento prazo-encerrado">
+            <svg class="ti" aria-hidden="true"><use href="#ti-alert-hexagon"/></svg>
+            Encerrado há {{ -a.dias_restantes }} dia{{ 's' if -a.dias_restantes != 1 }}
+          </span>
+        {% elif a.dias_restantes == 0 %}
+          <span class="prazo-tratamento prazo-hoje">
+            <svg class="ti" aria-hidden="true"><use href="#ti-alert-triangle"/></svg>
+            Termina hoje
+          </span>
+        {% else %}
+          <span class="prazo-tratamento prazo-proximo">
+            <svg class="ti" aria-hidden="true"><use href="#ti-clock"/></svg>
+            Termina em {{ a.dias_restantes }} dia{{ 's' if a.dias_restantes != 1 }}
+          </span>
+        {% endif %}
       {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<div class="pagina-cabecalho">
+  <div class="pagina-cabecalho-texto">
+    <h1 class="titulo-pagina">Pacientes</h1>
+    {% if pacientes %}
+    <p class="subtitulo">
+      {{ pacientes|length }} morador{{ 'es' if pacientes|length != 1 }}
+      em {{ session.get('casa_nome', 'cuidado') }}
+    </p>
     {% endif %}
   </div>
-  {% endfor %}
+  {% if pacientes %}
+  <div class="pagina-acoes">
+    <a href="{{ url_for('novo_paciente') }}" class="botao botao-primario">
+      <svg class="ti" aria-hidden="true"><use href="#ti-user-plus"/></svg> Cadastrar paciente
+    </a>
+    <a href="{{ url_for('agenda_diaria') }}" class="botao botao-secundario">
+      <svg class="ti" aria-hidden="true"><use href="#ti-calendar"/></svg> Agenda do dia
+    </a>
+  </div>
+  {% endif %}
 </div>
-{% endif %}
 
-<h1 class="titulo-pagina">Pacientes</h1>
-{% if pacientes %}
-<p class="subtitulo">{{ pacientes|length }} paciente{{ 's' if pacientes|length != 1 else '' }} ativo{{ 's' if pacientes|length != 1 else '' }}</p>
-{% endif %}
-
-<!-- Faixa de stat cards -->
 <div class="stats-grid">
   <div class="stat-card">
-    <div class="stat-card-icone"><i class="ti ti-users" aria-hidden="true"></i></div>
+    <div class="stat-card-icone"><svg class="ti" aria-hidden="true"><use href="#ti-users"/></svg></div>
     <div class="stat-card-label">Pacientes</div>
     <div class="stat-card-numero">{{ pacientes|length }}</div>
   </div>
   <div class="stat-card">
-    <div class="stat-card-icone"><i class="ti ti-calendar" aria-hidden="true"></i></div>
-    <div class="stat-card-label">Agenda hoje</div>
+    <div class="stat-card-icone"><svg class="ti" aria-hidden="true"><use href="#ti-pill"/></svg></div>
+    <div class="stat-card-label">Doses hoje</div>
     <div class="stat-card-numero">{{ agenda_hoje_total }}</div>
   </div>
   <div class="stat-card">
-    <div class="stat-card-icone"><i class="ti ti-user-cog" aria-hidden="true"></i></div>
+    <div class="stat-card-icone"><svg class="ti" aria-hidden="true"><use href="#ti-user-cog"/></svg></div>
     <div class="stat-card-label">Equipe ativa</div>
     <div class="stat-card-numero">{{ equipe_ativa_total }}</div>
   </div>
   <div class="stat-card {{ 'stat-alerta' if alertas_antibiotico }}">
-    <div class="stat-card-icone"><i class="ti ti-alert-triangle" aria-hidden="true"></i></div>
-    <div class="stat-card-label">Alertas</div>
+    <div class="stat-card-icone"><svg class="ti" aria-hidden="true"><use href="#ti-urgent"/></svg></div>
+    <div class="stat-card-label">Antibióticos em fim de ciclo</div>
     <div class="stat-card-numero">{{ alertas_antibiotico|length }}</div>
   </div>
 </div>
 
-<!-- Campo de busca com filtro instantâneo (sem recarregar página) -->
 {% if pacientes %}
 <div class="busca-wrap">
-  <span class="busca-icone"><i class="ti ti-search" aria-hidden="true"></i></span>
+  <span class="busca-icone"><svg class="ti" aria-hidden="true"><use href="#ti-search"/></svg></span>
+  <label class="so-leitor-tela" for="busca">Buscar paciente por nome</label>
   <input class="busca-input" type="search" id="busca"
-         placeholder="Buscar paciente..." autocomplete="off">
+         placeholder="Buscar por nome" autocomplete="off">
 </div>
 
 <div class="filtros-barra">
@@ -88,19 +122,11 @@
   </div>
 </div>
 
-<div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap">
-  <p class="filtro-resumo" id="filtro-resumo"></p>
-  <button type="button" class="filtro-limpar" id="filtro-limpar" style="display:none">
-    <i class="ti ti-x" aria-hidden="true"></i> Limpar filtros
+<div class="fileira-entre esp-y-4">
+  <p class="filtro-resumo" id="filtro-resumo" role="status" aria-live="polite"></p>
+  <button type="button" class="filtro-limpar" id="filtro-limpar" hidden>
+    <svg class="ti" aria-hidden="true"><use href="#ti-filter-off"/></svg> Limpar filtros
   </button>
-</div>
-{% endif %}
-
-{% if pacientes %}
-<!-- Botões visíveis no desktop -->
-<div class="barra-acoes">
-  <a href="{{ url_for('novo_paciente') }}" class="botao botao-primario">+ Novo Paciente</a>
-  <a href="{{ url_for('agenda_diaria') }}"  class="botao botao-secundario"><i class="ti ti-calendar" aria-hidden="true"></i> Ver Agenda</a>
 </div>
 {% endif %}
 
@@ -113,64 +139,78 @@
        data-quarto="{{ (p.quarto or '')|lower }}"
        data-condicoes="{{ (p.condicoes_lista|join('|'))|lower }}"
        data-idade="{{ p.idade if p.idade is not none else '' }}">
-      <!-- Avatar com inicial do nome -->
       <div class="card-avatar">{{ p.nome[0]|upper }}</div>
       <div class="card-corpo">
         <div class="card-paciente-nome">{{ p.nome }}</div>
         <div class="card-info">
-          {% if p.idade %}{{ p.idade }} anos{% endif %}
+          {% if p.quarto %}Quarto {{ p.quarto }}{% endif %}
+          {% if p.idade %}{% if p.quarto %} · {% endif %}{{ p.idade }} anos{% endif %}
           {% if p.sexo %} · {{ p.sexo }}{% endif %}
-          {% if p.quarto %} · Quarto {{ p.quarto }}{% endif %}
         </div>
         <div class="card-estatisticas">
           <div class="stat">
             <span class="stat-numero">{{ p.total_condicoes }}</span>&nbsp;condições
           </div>
           <div class="stat">
-            <span class="stat-numero">{{ p.total_medicamentos }}</span>&nbsp;remédios
+            <span class="stat-numero">{{ p.total_medicamentos }}</span>&nbsp;medicamentos
           </div>
         </div>
       </div>
-      <div class="card-seta">›</div>
+      <span class="card-seta" aria-hidden="true">
+        <svg class="ti"><use href="#ti-chevron-right"/></svg>
+      </span>
     </a>
     {% endfor %}
   </div>
 
-  <!-- Aparece quando a busca ou os filtros não encontram nada -->
-  <div id="busca-vazio" style="display:none" class="vazio">
-    <span class="vazio-icone"><i class="ti ti-search" aria-hidden="true"></i></span>
-    <h2 class="vazio-titulo">Nenhum resultado</h2>
-    <p class="vazio-texto">Tente outro nome ou limpe os filtros.</p>
+  {# Resultado zero: a lista tem pacientes, o recorte é que está estreito. #}
+  <div id="busca-vazio" class="vazio" hidden>
+    <span class="vazio-icone"><svg class="ti" aria-hidden="true"><use href="#ti-search"/></svg></span>
+    <h2 class="vazio-titulo">Nenhum paciente com esse recorte</h2>
+    <p class="vazio-texto" id="busca-vazio-texto">
+      Os {{ pacientes|length }} pacientes da casa continuam cadastrados — o filtro é que não
+      encontrou ninguém.
+    </p>
+    <button type="button" class="botao botao-secundario" id="filtro-limpar-vazio">
+      <svg class="ti" aria-hidden="true"><use href="#ti-filter-off"/></svg> Limpar filtros
+    </button>
   </div>
 
 {% else %}
   <div class="vazio">
-    <span class="vazio-icone"><i class="ti ti-users" aria-hidden="true"></i></span>
-    <h2 class="vazio-titulo">Nenhum paciente cadastrado</h2>
-    <p class="vazio-texto">Comece cadastrando o primeiro paciente.</p>
+    <span class="vazio-icone"><svg class="ti" aria-hidden="true"><use href="#ti-users"/></svg></span>
+    <h2 class="vazio-titulo">Nenhum morador cadastrado ainda</h2>
+    <p class="vazio-texto">
+      Cadastre o primeiro morador para registrar medicamentos, exames e evoluções.
+    </p>
     <a href="{{ url_for('novo_paciente') }}" class="botao botao-primario">
-      Cadastrar Primeiro Paciente
+      <svg class="ti" aria-hidden="true"><use href="#ti-user-plus"/></svg> Cadastrar paciente
     </a>
   </div>
 {% endif %}
-
-<!-- Botão flutuante + (mobile) -->
-<a href="{{ url_for('novo_paciente') }}" class="fab"
-   title="Novo paciente" aria-label="Cadastrar novo paciente">＋</a>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// Busca e filtros client-side — sem recarregar a página
-const busca    = document.getElementById('busca');
-const fQuarto  = document.getElementById('filtro-quarto');
-const fCond    = document.getElementById('filtro-condicao');
-const fIdade   = document.getElementById('filtro-idade');
-const cards    = document.querySelectorAll('.card-paciente');
-const semRes   = document.getElementById('busca-vazio');
-const resumo   = document.getElementById('filtro-resumo');
+// Busca e filtros client-side — sem recarregar a página.
+// Visibilidade pelo atributo `hidden`, não por style inline.
+const busca     = document.getElementById('busca');
+const fQuarto   = document.getElementById('filtro-quarto');
+const fCond     = document.getElementById('filtro-condicao');
+const fIdade    = document.getElementById('filtro-idade');
+const cards     = document.querySelectorAll('.card-paciente');
+const semRes    = document.getElementById('busca-vazio');
+const semResTxt = document.getElementById('busca-vazio-texto');
+const resumo    = document.getElementById('filtro-resumo');
 const btnLimpar = document.getElementById('filtro-limpar');
-const selects  = [fQuarto, fCond, fIdade].filter(Boolean);
+const btnLimparVazio = document.getElementById('filtro-limpar-vazio');
+const lista     = document.getElementById('lista-pacientes');
+const selects   = [fQuarto, fCond, fIdade].filter(Boolean);
+
+function rotuloQuarto() {
+  const opt = fQuarto?.selectedOptions?.[0];
+  return (fQuarto?.value && opt) ? opt.textContent.trim() : '';
+}
 
 function aplicar() {
   const q      = (busca?.value || '').toLowerCase().trim();
@@ -189,13 +229,30 @@ function aplicar() {
       const n = parseInt(d.idade, 10);
       ok = !isNaN(n) && n >= idadeMin && n <= idadeMax;
     }
-    card.style.display = ok ? '' : 'none';
+    card.hidden = !ok;
     if (ok) visiveis++;
   });
 
   const temFiltro = !!(q || quarto || cond || idade);
-  if (semRes) semRes.style.display = (temFiltro && visiveis === 0) ? '' : 'none';
-  if (btnLimpar) btnLimpar.style.display = temFiltro ? '' : 'none';
+  const vazio = temFiltro && visiveis === 0;
+
+  if (semRes) semRes.hidden = !vazio;
+  if (lista)  lista.hidden = vazio;
+  if (btnLimpar) btnLimpar.hidden = !temFiltro;
+
+  // Microcópia do domínio: diz qual recorte não achou ninguém.
+  if (vazio && semResTxt) {
+    const quartoTxt = rotuloQuarto();
+    if (quartoTxt && !q && !cond && !idade) {
+      semResTxt.textContent = 'Nenhum paciente no ' + quartoTxt.toLowerCase() + '.';
+    } else if (q && !quarto && !cond && !idade) {
+      semResTxt.textContent = 'Nenhum paciente com "' + busca.value.trim() + '" no nome.';
+    } else {
+      semResTxt.textContent = 'Nenhum dos ' + cards.length +
+        ' pacientes atende a todos os filtros ao mesmo tempo.';
+    }
+  }
+
   if (resumo) {
     resumo.textContent = temFiltro
       ? `${visiveis} de ${cards.length} paciente${cards.length !== 1 ? 's' : ''}`
@@ -204,12 +261,16 @@ function aplicar() {
   selects.forEach(s => s.classList.toggle('ativo', !!s.value));
 }
 
-busca?.addEventListener('input', aplicar);
-selects.forEach(s => s.addEventListener('change', aplicar));
-btnLimpar?.addEventListener('click', () => {
+function limpar() {
   if (busca) busca.value = '';
   selects.forEach(s => s.value = '');
   aplicar();
-});
+  busca?.focus();
+}
+
+busca?.addEventListener('input', aplicar);
+selects.forEach(s => s.addEventListener('change', aplicar));
+btnLimpar?.addEventListener('click', limpar);
+btnLimparVazio?.addEventListener('click', limpar);
 </script>
 {% endblock %}
