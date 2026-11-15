@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% from "familia/_macros.html" import situacao_dose, cartao_idoso, aviso_leitura, aviso_casa %}
+{% block titulo %}Início{% endblock %}
+
+{% block conteudo %}
+<div class="fam">
+  <div>
+    <p class="fam-ola">Olá, {{ session.get('usuario_nome', '').split(' ')[0] }}</p>
+    <h1 class="fam-titulo">Como está {{ paciente.nome.split(' ')[0] }} hoje</h1>
+  </div>
+
+  <div class="fam-cols">
+    <div class="fam-col">
+      {{ cartao_idoso(paciente) }}
+
+      <section class="fam-bloco" aria-labelledby="t-remedios">
+        <div class="fam-bloco-topo">
+          <h2 class="fam-bloco-titulo" id="t-remedios">Remédios de hoje</h2>
+          <a class="fam-mais" href="{{ url_for('familia_saude') }}">Ver todos</a>
+        </div>
+        <div class="fam-bloco-corpo">
+          {% for d in doses_hoje %}
+            <div class="fam-dose">
+              <div class="fam-hora dado-num">{{ d.horario }}</div>
+              <div class="fam-dose-nome">{{ d.nome }}{% if d.dosagem %} <span class="dado-num">{{ d.dosagem }}</span>{% endif %}</div>
+              <div class="fam-dose-sub">{{ situacao_dose(d.situacao) }}{% if d.por %} registrado por {{ d.por }}{% endif %}</div>
+            </div>
+          {% else %}
+            <p class="fam-vazio">Nenhum remédio com horário cadastrado.</p>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="fam-bloco" aria-labelledby="t-notas">
+        <div class="fam-bloco-topo">
+          <h2 class="fam-bloco-titulo" id="t-notas">Anotações da equipe</h2>
+          <a class="fam-mais" href="{{ url_for('familia_saude') }}#anotacoes">Ver todas</a>
+        </div>
+        <div class="fam-bloco-corpo">
+          {% for a in anotacoes %}
+            <div class="fam-nota">
+              <div class="fam-nota-meta"><span class="dado-num">{{ a.data_evolucao|data_curta }}</span>
+                {% if a.profissional %}· {{ a.profissional }}{% endif %}{% if a.especialidade %} · {{ a.especialidade }}{% endif %}</div>
+              <p>{{ a.descricao }}</p>
+            </div>
+          {% else %}
+            <p class="fam-vazio">A equipe ainda não fez anotações.</p>
+          {% endfor %}
+        </div>
+      </section>
+    </div>
+
+    <div class="fam-col">
+      {% if exame_recente %}
+      <div class="fam-destaque">
+        <svg class="ti" aria-hidden="true"><use href="#ti-file-text"/></svg>
+        <div>
+          <strong>Exame recente: {{ exame_recente.tipo_exame }}</strong>
+          <p>{% if exame_recente.observacao_familia %}A casa deixou um recado sobre este exame.{% else %}Feito em <span class="dado-num">{{ exame_recente.data_exame|data_br }}</span>.{% endif %}</p>
+          <a class="botao botao-primario" href="{{ url_for('familia_exames') }}">Ver exames</a>
+        </div>
+      </div>
+      {% endif %}
+
+      <section class="fam-bloco" aria-labelledby="t-visita">
+        <div class="fam-bloco-topo">
+          <h2 class="fam-bloco-titulo" id="t-visita">Última visita</h2>
+          <a class="fam-mais" href="{{ url_for('familia_visitas') }}">Histórico</a>
+        </div>
+        <div class="fam-bloco-corpo">
+          {% if ultima_visita %}
+            <div class="fam-nota">
+              <div class="fam-nota-meta"><svg class="ti" aria-hidden="true"><use href="#ti-calendar"/></svg>
+                <span class="dado-num">{{ ultima_visita.data_visita|data_br }}</span>
+                {% if ultima_visita.hora_entrada %}· <span class="dado-num">{{ ultima_visita.hora_entrada }}</span>{% if ultima_visita.hora_saida %} às <span class="dado-num">{{ ultima_visita.hora_saida }}</span>{% endif %}{% endif %}</div>
+              <p>{{ ultima_visita.visitante_nome }}{% if ultima_visita.visitante_parentesco %} ({{ ultima_visita.visitante_parentesco }}){% endif %}</p>
+            </div>
+          {% else %}
+            <p class="fam-vazio">Nenhuma visita registrada ainda.</p>
+          {% endif %}
+        </div>
+      </section>
+
+      {{ aviso_casa() }}
+      {{ aviso_leitura() }}
+      <form method="POST" action="{{ url_for('desvincular_idoso') }}"
+            onsubmit="return confirm('Parar de acompanhar este idoso e escolher outro?');">
+        <button type="submit" class="botao botao-secundario">Acompanhar outro idoso</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

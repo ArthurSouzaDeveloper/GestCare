@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-direcao="{{ 'B' if session.get('usuario_perfil') == 'responsavel' else 'A' }}">
 <head>
 {% include 'partials/_cabeca.html' %}
   <title>{% block titulo %}GestCare{% endblock %} — GestCare</title>
@@ -24,7 +24,10 @@
   ] %}
 {% elif perfil == 'responsavel' %}
   {% set destinos = [
-      ('painel_responsavel', 'Ficha', 'clipboard-list')
+      ('painel_responsavel', 'Início', 'home'),
+      ('familia_saude', 'Saúde', 'heartbeat'),
+      ('familia_exames', 'Exames', 'file-text'),
+      ('familia_visitas', 'Visitas', 'calendar')
   ] %}
 {% elif perfil == 'admin' %}
   {% set destinos = [
@@ -47,8 +50,7 @@
 
 <div class="app-shell">
 
-  {% if perfil != 'responsavel' %}
-    <!-- ── SIDEBAR — equipe e superadmin, a partir de 768px ───────────── -->
+    <!-- ── SIDEBAR — todos os perfis, a partir de 768px ───────────────── -->
     <aside class="sidebar">
       <div class="sidebar-topo">
         <span class="logo-mark"><svg class="ti" aria-hidden="true"><use href="#ti-heartbeat"/></svg></span>
@@ -81,28 +83,22 @@
         {% include 'partials/_menu_conta.html' with context %}
       </div>
     </aside>
-  {% endif %}
 
   <div class="main-area">
 
     <!-- ── BARRA DE TOPO ─────────────────────────────────────────────── -->
-    <header class="topo {% if perfil == 'responsavel' %}topo-familia{% endif %}">
+    <header class="topo">
       <div class="topo-interno">
-        {% if perfil == 'responsavel' %}
-          <a href="{{ url_for('painel_responsavel') }}" class="logo-link">
-            <span class="logo-mark"><svg class="ti" aria-hidden="true"><use href="#ti-heartbeat"/></svg></span>
-            <span class="logo-texto">
-              <span class="logo">GestCare</span>
+        <a href="{{ url_for(destinos[0][0]) if destinos else url_for('meu_perfil') }}" class="logo-link so-mobile">
+          <span class="logo-mark"><svg class="ti" aria-hidden="true"><use href="#ti-heartbeat"/></svg></span>
+          <span class="logo-texto">
+            <span class="logo">GestCare</span>
+            {% if perfil == 'responsavel' %}
               <span class="logo-contexto">Área da Família{% if session.get('casa_nome') %} · {{ session.get('casa_nome') }}{% endif %}</span>
-            </span>
-          </a>
-        {% else %}
-          <a href="{{ url_for(destinos[0][0]) if destinos else url_for('meu_perfil') }}" class="logo-link so-mobile">
-            <span class="logo-mark"><svg class="ti" aria-hidden="true"><use href="#ti-heartbeat"/></svg></span>
-            <span class="logo-texto"><span class="logo">GestCare</span></span>
-          </a>
-          <span class="topo-espaco"></span>
-        {% endif %}
+            {% endif %}
+          </span>
+        </a>
+        <span class="topo-espaco"></span>
 
         <div class="conta-wrap so-desktop">
           <button type="button" class="botao-conta" id="conta-topo"

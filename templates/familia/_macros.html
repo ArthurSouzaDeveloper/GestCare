@@ -1,0 +1,33 @@
+{# Peças repetidas do portal da família. #}
+{% macro situacao_dose(situacao) -%}
+  {%- if situacao == 'dado' -%}
+    <span class="fam-st fam-st-ok"><svg class="ti" aria-hidden="true"><use href="#ti-check"/></svg> Dado</span>
+  {%- elif situacao == 'mais_tarde' -%}
+    <span class="fam-st fam-st-espera"><svg class="ti" aria-hidden="true"><use href="#ti-clock"/></svg> Mais tarde</span>
+  {%- else -%}
+    <span class="fam-st fam-st-aviso"><svg class="ti" aria-hidden="true"><use href="#ti-clock"/></svg> Sem registro ainda</span>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro cartao_idoso(paciente) -%}
+<div class="fam-idoso">
+  <div class="fam-avatar" aria-hidden="true">{{ paciente.nome[0]|upper }}</div>
+  <div>
+    <div class="fam-idoso-nome">{{ paciente.nome }}</div>
+    <div class="fam-idoso-sub">
+      {% if paciente.idade %}<span class="dado-num">{{ paciente.idade }}</span> anos{% endif %}
+      {% if paciente.quarto %}{% if paciente.idade %} · {% endif %}Quarto <span class="dado-num">{{ paciente.quarto }}</span>{% endif %}
+    </div>
+  </div>
+</div>
+{%- endmacro %}
+
+{% macro aviso_leitura() -%}
+<p class="fam-leitura"><svg class="ti" aria-hidden="true"><use href="#ti-lock"/></svg>
+  Somente leitura. A equipe da casa atualiza estas informações.</p>
+{%- endmacro %}
+
+{% macro aviso_casa() -%}
+<div class="fam-aviso"><svg class="ti" aria-hidden="true"><use href="#ti-phone"/></svg>
+  <div>Dúvida sobre a ficha? Fale com a equipe{% if session.get('casa_nome') %} do {{ session.get('casa_nome') }}{% endif %}, na visita ou pelo telefone que a casa já passou a você.</div></div>
+{%- endmacro %}
