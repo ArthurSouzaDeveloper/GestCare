@@ -7,6 +7,21 @@
 
 {% set pendente = verificacoes|selectattr('status', 'equalto', 'pendente')|list %}
 
+{% if liberado %}
+<div class="alerta alerta-sucesso">Identidade aprovada. Seu acesso à ficha está liberado.
+  <a href="{{ url_for('painel_responsavel') }}"><strong>Ver a ficha</strong></a></div>
+{% else %}
+<div class="ident-aviso">
+  <i class="ti ti-lock" aria-hidden="true"></i>
+  <div>
+    <strong>O acesso à ficha do idoso fica bloqueado até a casa aprovar sua identidade.</strong>
+    {% if pendente %}Seu envio está sendo analisado.
+    {% elif verificacoes %}Seu último envio foi recusado; veja o motivo abaixo e envie novas fotos.
+    {% else %}Envie as fotos abaixo para começar.{% endif %}
+  </div>
+</div>
+{% endif %}
+
 {% if verificacoes %}
 <div class="secao">
   <div class="secao-cabecalho"><h2 class="secao-titulo">Meus envios</h2></div>
@@ -57,5 +72,5 @@
 </section>
 {% endif %}
 
-<a href="{{ url_for('painel_responsavel') }}" class="botao botao-secundario">← Voltar à ficha</a>
+{% if liberado %}<a href="{{ url_for('painel_responsavel') }}" class="botao botao-secundario">← Voltar à ficha</a>{% endif %}
 {% endblock %}
