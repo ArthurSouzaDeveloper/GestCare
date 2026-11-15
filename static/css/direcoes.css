@@ -1,0 +1,272 @@
+/* ══════════════════════════════════════════════════════════
+   GESTCARE — DIREÇÕES VISUAIS POR PERFIL
+   A "Prontuário": equipe, superadmin e páginas públicas (navy, IBM Plex).
+   B "Tinta": portal do responsável (papel, serifa nos títulos).
+   Escolhida pelo Arthur em 2026-11-15. O <html> recebe data-direcao="A|B"
+   (base.html). Só os semânticos mudam: nenhum componente conhece a direção.
+   Carregado depois de style.css; o escuro precisa de especificidade maior
+   que o escuro do style.css, por isso o :not([data-tema="claro"]) repetido.
+   ══════════════════════════════════════════════════════════ */
+
+/* ── Fontes (a escolha vem das variáveis; o fallback é o --fonte original) ── */
+:root[data-direcao="A"] {
+  --fonte: "IBM Plex Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --fonte-dado: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+:root[data-direcao="B"] {
+  --fonte: "Source Sans 3", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --fonte-titulo: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --fonte-dado: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+}
+h1, h2, h3, .titulo-pagina, .secao-titulo { font-family: var(--fonte-titulo, var(--fonte)); }
+.dado-num { font-family: var(--fonte-dado, var(--fonte)); font-variant-numeric: tabular-nums; }
+
+/* ══════════ A · PRONTUÁRIO — claro ══════════ */
+:root[data-direcao="A"] {
+  --canvas:              #eceff2;
+  --superficie:          #ffffff;
+  --superficie-afundada: #f5f7f9;
+  --superficie-marca:    #16293d;
+
+  --borda:          #d6dbe1;
+  --borda-sutil:    #e3e8ed;
+  --borda-controle: #76828f;
+  --borda-forte:    #44525f;
+
+  --texto-primario:    #121c27;
+  --texto-secundario:  #4f5966;
+  --texto-terciario:   #76828f;
+  --texto-sobre-acao:  #ffffff;
+  --texto-sobre-marca: #ffffff;
+
+  --acao:             #1a4f7a;
+  --acao-hover:       #123a5a;
+  --acao-sutil:       #dbe7f1;
+  --acao-sutil-texto: #123a5a;
+
+  --risco-alto:        #a3302a;
+  --risco-alto-bg:     #fbeae8;
+  --risco-medio:       #8a5a10;
+  --risco-medio-bg:    #fbf2e0;
+  --risco-medio-marca: #b07a1e;
+  --risco-baixo:       #1f5c46;
+  --risco-baixo-bg:    #e6f2ec;
+  --info:              #1a4f7a;
+  --info-bg:           #eaf1f7;
+
+  --foco:             #1a4f7a;
+  --foco-sobre-marca: #8fc0e6;
+
+  --elev-1: 0 1px 2px rgba(18, 28, 39, .06);
+  --elev-2: 0 4px 12px -2px rgba(18, 28, 39, .10);
+  --elev-3: 0 12px 28px -8px rgba(18, 28, 39, .18);
+}
+
+/* ══════════ A · PRONTUÁRIO — escuro ══════════ */
+@media (prefers-color-scheme: dark) {
+  :root[data-direcao="A"]:not([data-tema="claro"]) {
+    --canvas:              #0b121a;
+    --superficie:          #141d27;
+    --superficie-afundada: #1a242f;
+    --superficie-marca:    #101a24;
+    --borda:          #2a3642;
+    --borda-sutil:    #212c37;
+    --borda-controle: #6f7f8e;
+    --borda-forte:    #8d9aa7;
+    --texto-primario:    #e9eef3;
+    --texto-secundario:  #a8b3bf;
+    --texto-terciario:   #85909c;
+    --texto-sobre-acao:  #0b121a;
+    --texto-sobre-marca: #e9eef3;
+    --acao:             #6fb2e0;
+    --acao-hover:       #9ccaec;
+    --acao-sutil:       #16324a;
+    --acao-sutil-texto: #a9d2f0;
+    --risco-alto:        #ed9289;
+    --risco-alto-bg:     #331a18;
+    --risco-medio:       #dca94f;
+    --risco-medio-bg:    #2d2310;
+    --risco-medio-marca: #dca94f;
+    --risco-baixo:       #6dbd9b;
+    --risco-baixo-bg:    #122e25;
+    --info:              #a9d2f0;
+    --info-bg:           #101a24;
+    --foco:             #8fc0e6;
+    --foco-sobre-marca: #8fc0e6;
+    --elev-1: 0 1px 2px rgba(0, 0, 0, .40);
+    --elev-2: 0 4px 12px -2px rgba(0, 0, 0, .50);
+    --elev-3: 0 12px 28px -8px rgba(0, 0, 0, .60);
+  }
+}
+:root[data-direcao="A"][data-tema="escuro"] {
+  --canvas:              #0b121a;
+  --superficie:          #141d27;
+  --superficie-afundada: #1a242f;
+  --superficie-marca:    #101a24;
+  --borda:          #2a3642;
+  --borda-sutil:    #212c37;
+  --borda-controle: #6f7f8e;
+  --borda-forte:    #8d9aa7;
+  --texto-primario:    #e9eef3;
+  --texto-secundario:  #a8b3bf;
+  --texto-terciario:   #85909c;
+  --texto-sobre-acao:  #0b121a;
+  --texto-sobre-marca: #e9eef3;
+  --acao:             #6fb2e0;
+  --acao-hover:       #9ccaec;
+  --acao-sutil:       #16324a;
+  --acao-sutil-texto: #a9d2f0;
+  --risco-alto:        #ed9289;
+  --risco-alto-bg:     #331a18;
+  --risco-medio:       #dca94f;
+  --risco-medio-bg:    #2d2310;
+  --risco-medio-marca: #dca94f;
+  --risco-baixo:       #6dbd9b;
+  --risco-baixo-bg:    #122e25;
+  --info:              #a9d2f0;
+  --info-bg:           #101a24;
+  --foco:             #8fc0e6;
+  --foco-sobre-marca: #8fc0e6;
+  --elev-1: 0 1px 2px rgba(0, 0, 0, .40);
+  --elev-2: 0 4px 12px -2px rgba(0, 0, 0, .50);
+  --elev-3: 0 12px 28px -8px rgba(0, 0, 0, .60);
+}
+
+/* ══════════ B · TINTA — claro ══════════ */
+:root[data-direcao="B"] {
+  --canvas:              #ebe8e1;
+  --superficie:          #f8f6f1;
+  --superficie-afundada: #f1eee7;
+  --superficie-marca:    #1f3a33;
+
+  --borda:          #d5cfc3;
+  --borda-sutil:    #e2ddd2;
+  --borda-controle: #7a7466;
+  --borda-forte:    #4a4f48;
+
+  --texto-primario:    #1e2a25;
+  --texto-secundario:  #4f5650;
+  --texto-terciario:   #747a72;
+  --texto-sobre-acao:  #f8f6f1;
+  --texto-sobre-marca: #f8f6f1;
+
+  --acao:             #1f3a33;
+  --acao-hover:       #142822;
+  --acao-sutil:       #dfe7e2;
+  --acao-sutil-texto: #1f3a33;
+
+  --risco-alto:        #9c3228;
+  --risco-alto-bg:     #f6e3df;
+  --risco-medio:       #86590f;
+  --risco-medio-bg:    #f6ecd7;
+  --risco-medio-marca: #a8711a;
+  --risco-baixo:       #2a6350;
+  --risco-baixo-bg:    #e3eee8;
+  --info:              #1f3a33;
+  --info-bg:           #e8eeea;
+
+  --foco:             #1f3a33;
+  --foco-sobre-marca: #b9d8ca;
+
+  --elev-1: 0 1px 2px rgba(30, 42, 37, .07);
+  --elev-2: 0 4px 12px -2px rgba(30, 42, 37, .12);
+  --elev-3: 0 12px 28px -8px rgba(30, 42, 37, .20);
+
+  /* Bilhete do "Recado da casa" (só usado no portal) */
+  --bilhete-bg:     #f3ecd9;
+  --bilhete-borda:  #c9b88c;
+}
+
+/* ══════════ B · TINTA — escuro ══════════ */
+@media (prefers-color-scheme: dark) {
+  :root[data-direcao="B"]:not([data-tema="claro"]) {
+    --canvas:              #121513;
+    --superficie:          #1a1e1b;
+    --superficie-afundada: #212622;
+    --superficie-marca:    #1a1e1b;
+    --borda:          #323a35;
+    --borda-sutil:    #282f2a;
+    --borda-controle: #7a857d;
+    --borda-forte:    #98a29a;
+    --texto-primario:    #e8e5dd;
+    --texto-secundario:  #aeb2aa;
+    --texto-terciario:   #8a9088;
+    --texto-sobre-acao:  #121513;
+    --texto-sobre-marca: #e8e5dd;
+    --acao:             #9fcbb8;
+    --acao-hover:       #bddccd;
+    --acao-sutil:       #22352e;
+    --acao-sutil-texto: #bddccd;
+    --risco-alto:        #ec978b;
+    --risco-alto-bg:     #33201c;
+    --risco-medio:       #d8ad5c;
+    --risco-medio-bg:    #2c2412;
+    --risco-medio-marca: #d8ad5c;
+    --risco-baixo:       #86c4a8;
+    --risco-baixo-bg:    #16291f;
+    --info:              #bddccd;
+    --info-bg:           #1a1e1b;
+    --foco:             #9fcbb8;
+    --foco-sobre-marca: #9fcbb8;
+    --elev-1: 0 1px 2px rgba(0, 0, 0, .40);
+    --elev-2: 0 4px 12px -2px rgba(0, 0, 0, .50);
+    --elev-3: 0 12px 28px -8px rgba(0, 0, 0, .60);
+    --bilhete-bg:    #25221a;
+    --bilhete-borda: #5c5236;
+  }
+}
+:root[data-direcao="B"][data-tema="escuro"] {
+  --canvas:              #121513;
+  --superficie:          #1a1e1b;
+  --superficie-afundada: #212622;
+  --superficie-marca:    #1a1e1b;
+  --borda:          #323a35;
+  --borda-sutil:    #282f2a;
+  --borda-controle: #7a857d;
+  --borda-forte:    #98a29a;
+  --texto-primario:    #e8e5dd;
+  --texto-secundario:  #aeb2aa;
+  --texto-terciario:   #8a9088;
+  --texto-sobre-acao:  #121513;
+  --texto-sobre-marca: #e8e5dd;
+  --acao:             #9fcbb8;
+  --acao-hover:       #bddccd;
+  --acao-sutil:       #22352e;
+  --acao-sutil-texto: #bddccd;
+  --risco-alto:        #ec978b;
+  --risco-alto-bg:     #33201c;
+  --risco-medio:       #d8ad5c;
+  --risco-medio-bg:    #2c2412;
+  --risco-medio-marca: #d8ad5c;
+  --risco-baixo:       #86c4a8;
+  --risco-baixo-bg:    #16291f;
+  --info:              #bddccd;
+  --info-bg:           #1a1e1b;
+  --foco:             #9fcbb8;
+  --foco-sobre-marca: #9fcbb8;
+  --elev-1: 0 1px 2px rgba(0, 0, 0, .40);
+  --elev-2: 0 4px 12px -2px rgba(0, 0, 0, .50);
+  --elev-3: 0 12px 28px -8px rgba(0, 0, 0, .60);
+  --bilhete-bg:    #25221a;
+  --bilhete-borda: #5c5236;
+}
+
+/* ══════════ B · barra do topo e sidebar em papel (sem barra colorida) ══════════
+   style.css supõe marca escura (textos brancos fixos); aqui B troca por tokens. */
+:root[data-direcao="B"] .topo { background: var(--superficie); color: var(--texto-primario);
+  border-bottom: 1px solid var(--borda); box-shadow: none; }
+:root[data-direcao="B"] .logo { color: var(--texto-primario); font-family: var(--fonte-titulo); }
+:root[data-direcao="B"] .logo-contexto,
+:root[data-direcao="B"] .sidebar-etiqueta { color: var(--texto-secundario); }
+:root[data-direcao="B"] .logo-mark { background: var(--acao); color: var(--texto-sobre-acao); }
+:root[data-direcao="B"] .sidebar { background: var(--superficie); color: var(--texto-primario);
+  border-right: 1px solid var(--borda); }
+:root[data-direcao="B"] .sidebar-topo,
+:root[data-direcao="B"] .sidebar-rodape { border-color: var(--borda); }
+:root[data-direcao="B"] .sidebar-item { color: var(--texto-secundario); }
+:root[data-direcao="B"] .sidebar-item:hover { background: var(--superficie-afundada); color: var(--texto-primario); }
+:root[data-direcao="B"] .sidebar-item.ativo { background: var(--acao-sutil); color: var(--acao-sutil-texto); }
+:root[data-direcao="B"] .avatar-usuario.sobre-escuro,
+:root[data-direcao="B"] .botao-conta .avatar-usuario { background: var(--acao-sutil); color: var(--acao-sutil-texto); }
+:root[data-direcao="B"] .botao-conta { color: var(--texto-primario); }
+:root[data-direcao="B"] .botao-conta:hover { background: var(--superficie-afundada); }

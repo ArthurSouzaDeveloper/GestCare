@@ -158,8 +158,9 @@ def injetar_versao_assets():
     """Versão baseada no mtime do CSS, usada como ?v= para invalidar cache do navegador
     sempre que o arquivo mudar (evita que usuários fiquem com estilo antigo em cache)."""
     try:
-        css_path = os.path.join(app.static_folder, 'css', 'style.css')
-        versao_assets = str(int(os.path.getmtime(css_path)))
+        versao_assets = str(int(max(
+            os.path.getmtime(os.path.join(app.static_folder, 'css', nome))
+            for nome in ('style.css', 'direcoes.css', 'portal.css'))))
     except OSError:
         versao_assets = '1'
     return dict(versao_assets=versao_assets)
@@ -1277,89 +1278,208 @@ def logout():
 
 
 # ============================================================================
-# PAINEL DO RESPONSÁVEL (somente leitura)
+# PORTAL DO RESPONSÁVEL (somente leitura)
+# Início, Saúde, Exames e Visitas. A Conta fica no menu do avatar (meu_perfil).
 # ============================================================================
+
+_MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho',
+          'agosto', 'setembro', 'outubro', 'novembro', 'dezembro']
+
+
+def data_br(valor):
+    """'2026-11-12' (ou '2026-11-12T08:00') -> '12/11/2026'. Valor vazio ou fora do padrão volta como veio."""
+    if not valor:
+        return ''
+    texto = str(valor)[:10]
+    try:
+        return datetime.strptime(texto, '%Y-%m-%d').strftime('%d/%m/%Y')
+    except ValueError:
+        return str(valor)
+
+
+def data_curta(valor):
+    """'2026-11-12' -> '12/11'."""
+    completa = data_br(valor)
+    return completa[:5] if len(completa) == 10 else completa
+
+
+app.jinja_env.filters['data_br'] = data_br
+app.jinja_env.filters['data_curta'] = data_curta
+
+
+def _identidade_liberada(conn):
+    """Libera o portal só para quem a casa aprovou, quando o repositório de identidade existir.
+    Enquanto ele não existir neste código, não há aprovação a exigir."""
+    verificar = globals().get('responsavel_verificado')
+    return True if verificar is None else bool(verificar(conn, session['usuario_id']))
+
+
+def _abrir_portal(conn):
+    """Confere perfil, idoso vinculado e aprovação de identidade.
+    Devolve (paciente, None) quando pode seguir, ou (None, resposta) com o redirecionamento."""
+    if session.get('usuario_perfil') != 'responsavel':
+        flash('Acesso não autorizado.', 'erro')
+        return None, redirect(url_for('login'))
+    paciente_id = session.get('paciente_id')
+    if not paciente_id:
+        return None, redirect(url_for('vincular_idoso'))
+    if not _identidade_liberada(conn):
+        if 'verificacao_responsavel' in app.view_functions:
+            flash('Seu acesso à ficha será liberado depois que a casa aprovar sua identidade.', 'erro')
+            return None, redirect(url_for('verificacao_responsavel'))
+        return None, redirect(url_for('login'))
+    paciente = buscar_paciente_da_casa(conn, paciente_id)
+    if not paciente:
+        flash('Paciente não encontrado.', 'erro')
+        return None, redirect(url_for('login'))
+    dados = dict(paciente)
+    dados['idade'] = calcular_idade(dados['data_nascimento'])
+    return dados, None
+
+
+def _remedios_do_paciente(conn, paciente_id, agora=None):
+    """Remédios ativos com horários, situação das doses de hoje e fim do antibiótico.
+
+    As doses do dia são casadas por ordem: a 1ª dose registrada hoje cobre o 1º horário do remédio,
+    a 2ª cobre o 2º, e assim por diante. Horário que já passou sem registro aparece como
+    'sem_registro' (o sistema só guarda doses dadas, então não afirma que a dose foi pulada)."""
+    agora = agora or datetime.now()
+    hoje = agora.strftime('%Y-%m-%d')
+    hora_agora = agora.strftime('%H:%M')
+    remedios = []
+    for m in conn.execute(
+            'SELECT * FROM medicamentos WHERE paciente_id = ? AND ativo = 1 ORDER BY nome',
+            (paciente_id,)).fetchall():
+        med = dict(m)
+        horarios = [h['horario'][:5] for h in conn.execute(
+            'SELECT horario FROM horarios_medicamento WHERE medicamento_id = ? ORDER BY horario',
+            (m['id'],)).fetchall()]
+        registradas = conn.execute(
+            'SELECT administrado_por FROM doses_administradas '
+            'WHERE medicamento_id = ? AND substr(horario_previsto, 1, 10) = ? '
+            'ORDER BY horario_previsto, id', (m['id'], hoje)).fetchall()
+        doses = []
+        for i, h in enumerate(horarios):
+            if i < len(registradas):
+                doses.append({'horario': h, 'situacao': 'dado',
+                              'por': registradas[i]['administrado_por'] or ''})
+            elif h > hora_agora:
+                doses.append({'horario': h, 'situacao': 'mais_tarde', 'por': ''})
+            else:
+                doses.append({'horario': h, 'situacao': 'sem_registro', 'por': ''})
+        med['horarios'] = horarios
+        med['doses_hoje'] = doses
+        med['dias_restantes'] = None
+        if med.get('eh_antibiotico') and med.get('data_fim_tratamento'):
+            try:
+                fim = datetime.strptime(str(med['data_fim_tratamento'])[:10], '%Y-%m-%d').date()
+                med['dias_restantes'] = (fim - agora.date()).days
+            except ValueError:
+                pass
+        remedios.append(med)
+    return remedios
+
 
 @app.route('/meu-paciente')
 @login_obrigatorio
 def painel_responsavel():
-    if session.get('usuario_perfil') != 'responsavel':
-        flash('Acesso não autorizado.', 'erro')
-        return redirect(url_for('login'))
-    paciente_id = session.get('paciente_id')
-    if not paciente_id:
-        return redirect(url_for('vincular_idoso'))
-
+    """Início: como foi o dia."""
     with get_db() as conn:
-        # Só vê a ficha quem teve a identidade aprovada pela casa (Repositório).
-        if not responsavel_verificado(conn, session['usuario_id']):
-            flash('Seu acesso à ficha será liberado depois que a casa aprovar sua identidade. '
-                  'Envie seus documentos abaixo.', 'erro')
-            return redirect(url_for('verificacao_responsavel'))
-        paciente = buscar_paciente_da_casa(conn, paciente_id)
-        if not paciente:
-            flash('Paciente não encontrado.', 'erro')
-            return redirect(url_for('login'))
+        paciente, resposta = _abrir_portal(conn)
+        if resposta:
+            return resposta
+        pid = paciente['id']
+        remedios = _remedios_do_paciente(conn, pid)
+        doses_hoje = sorted(
+            ({'nome': r['nome'], 'dosagem': r['dosagem'], **d} for r in remedios for d in r['doses_hoje']),
+            key=lambda d: (d['horario'], d['nome']))
+        anotacoes = conn.execute(
+            'SELECT * FROM evolucoes_medicas WHERE paciente_id = ? ORDER BY data_evolucao DESC, id DESC LIMIT 2',
+            (pid,)).fetchall()
+        ultima_visita = conn.execute(
+            'SELECT * FROM visitas WHERE paciente_id = ? ORDER BY data_visita DESC, id DESC LIMIT 1',
+            (pid,)).fetchone()
+        limite = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+        exame_recente = conn.execute(
+            'SELECT * FROM exames WHERE paciente_id = ? AND data_exame >= ? '
+            'ORDER BY data_exame DESC, id DESC LIMIT 1', (pid, limite)).fetchone()
+    return render_template('familia/inicio.html', paciente=paciente, doses_hoje=doses_hoje,
+                           anotacoes=anotacoes, ultima_visita=ultima_visita,
+                           exame_recente=exame_recente)
 
-        paciente_dict = dict(paciente)
-        paciente_dict['idade'] = calcular_idade(paciente_dict['data_nascimento'])
 
+@app.route('/meu-paciente/saude')
+@login_obrigatorio
+def familia_saude():
+    """Saúde: remédios, condições, alimentação, acompanhamento e anotações da equipe."""
+    with get_db() as conn:
+        paciente, resposta = _abrir_portal(conn)
+        if resposta:
+            return resposta
+        pid = paciente['id']
+        remedios = _remedios_do_paciente(conn, pid)
         condicoes = conn.execute(
-            'SELECT * FROM condicoes WHERE paciente_id = ? ORDER BY data_diagnostico DESC',
-            (paciente_id,)
-        ).fetchall()
-
-        medicamentos_raw = conn.execute(
-            'SELECT * FROM medicamentos WHERE paciente_id = ? AND ativo = 1 ORDER BY nome',
-            (paciente_id,)
-        ).fetchall()
-        medicamentos = []
-        for m in medicamentos_raw:
-            med_dict = dict(m)
-            horarios = conn.execute(
-                'SELECT horario FROM horarios_medicamento WHERE medicamento_id = ? ORDER BY horario',
-                (m['id'],)
-            ).fetchall()
-            med_dict['horarios'] = [h['horario'] for h in horarios]
-            ultimas = conn.execute(
-                'SELECT * FROM doses_administradas WHERE medicamento_id = ? ORDER BY horario_administrado DESC LIMIT 5',
-                (m['id'],)
-            ).fetchall()
-            med_dict['ultimas_doses'] = [dict(d) for d in ultimas]
-            medicamentos.append(med_dict)
-
-        ficha_psico = conn.execute(
-            'SELECT * FROM ficha_psicologica WHERE paciente_id = ?', (paciente_id,)
-        ).fetchone()
-
+            'SELECT * FROM condicoes WHERE paciente_id = ? ORDER BY data_diagnostico DESC', (pid,)).fetchall()
+        dieta = conn.execute('SELECT * FROM comorbidades_dieta WHERE paciente_id = ?', (pid,)).fetchone()
+        ficha_psico = conn.execute('SELECT * FROM ficha_psicologica WHERE paciente_id = ?', (pid,)).fetchone()
         profissionais = conn.execute(
             'SELECT * FROM profissionais_consultados WHERE paciente_id = ? ORDER BY data_consulta DESC',
-            (paciente_id,)
-        ).fetchall()
+            (pid,)).fetchall()
+        anotacoes = conn.execute(
+            'SELECT * FROM evolucoes_medicas WHERE paciente_id = ? ORDER BY data_evolucao DESC, id DESC',
+            (pid,)).fetchall()
+    return render_template('familia/saude.html', paciente=paciente, remedios=remedios,
+                           condicoes=condicoes, dieta=dieta, ficha_psico=ficha_psico,
+                           profissionais=profissionais, anotacoes=anotacoes)
 
-        dieta = conn.execute(
-            'SELECT * FROM comorbidades_dieta WHERE paciente_id = ?', (paciente_id,)
-        ).fetchone()
 
+@app.route('/meu-paciente/exames')
+@login_obrigatorio
+def familia_exames():
+    """Exames com PDF e recado da casa, agrupados por mês."""
+    with get_db() as conn:
+        paciente, resposta = _abrir_portal(conn)
+        if resposta:
+            return resposta
+        linhas = conn.execute(
+            'SELECT * FROM exames WHERE paciente_id = ? ORDER BY data_exame DESC, id DESC',
+            (paciente['id'],)).fetchall()
+    limite = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+    meses, ordem = {}, []
+    for linha in linhas:
+        exame = dict(linha)
+        exame['recente'] = str(exame['data_exame'])[:10] >= limite
+        chave = str(exame['data_exame'])[:7]
+        if chave not in meses:
+            meses[chave] = []
+            ordem.append(chave)
+        meses[chave].append(exame)
+
+    def titulo_mes(chave):
+        try:
+            ano, mes = chave.split('-')
+            return f'{_MESES[int(mes) - 1].capitalize()} de {ano}'
+        except (ValueError, IndexError):
+            return chave
+
+    grupos = [(titulo_mes(c), meses[c]) for c in ordem]
+    return render_template('familia/exames.html', paciente=paciente, grupos=grupos,
+                           total=len(linhas),
+                           com_recado=sum(1 for l in linhas if l['observacao_familia']),
+                           com_pdf=sum(1 for l in linhas if l['arquivo_nome']))
+
+
+@app.route('/meu-paciente/visitas')
+@login_obrigatorio
+def familia_visitas():
+    with get_db() as conn:
+        paciente, resposta = _abrir_portal(conn)
+        if resposta:
+            return resposta
         visitas = conn.execute(
-            'SELECT * FROM visitas WHERE paciente_id = ? ORDER BY data_visita DESC LIMIT 10',
-            (paciente_id,)
-        ).fetchall()
-
-        exames = conn.execute(
-            'SELECT * FROM exames WHERE paciente_id = ? ORDER BY data_exame DESC',
-            (paciente_id,)
-        ).fetchall()
-
-        evolucoes = conn.execute(
-            'SELECT * FROM evolucoes_medicas WHERE paciente_id = ? ORDER BY data_evolucao DESC',
-            (paciente_id,)
-        ).fetchall()
-
-    return render_template('pacienteresponsavel.html',
-        paciente=paciente_dict, condicoes=condicoes, medicamentos=medicamentos,
-        ficha_psico=ficha_psico, profissionais=profissionais, dieta=dieta,
-        visitas=visitas, exames=exames, evolucoes=evolucoes)
+            'SELECT * FROM visitas WHERE paciente_id = ? ORDER BY data_visita DESC, id DESC LIMIT 30',
+            (paciente['id'],)).fetchall()
+    return render_template('familia/visitas.html', paciente=paciente, visitas=visitas)
 
 
 # ============================================================================

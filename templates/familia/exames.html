@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% from "familia/_macros.html" import aviso_leitura, aviso_casa %}
+{% block titulo %}Exames{% endblock %}
+
+{% block conteudo %}
+<div class="fam">
+  <h1 class="fam-titulo">Exames</h1>
+
+  {% if total %}
+  <div class="fam-filtros" role="group" aria-label="Filtrar exames" id="filtros-exames">
+    <button type="button" data-filtro="todos" aria-pressed="true">Todos <span class="dado-num">{{ total }}</span></button>
+    <button type="button" data-filtro="recado" aria-pressed="false">Com recado <span class="dado-num">{{ com_recado }}</span></button>
+    <button type="button" data-filtro="pdf" aria-pressed="false">Com PDF <span class="dado-num">{{ com_pdf }}</span></button>
+  </div>
+  {% endif %}
+
+  <div class="fam-lista-exames" id="lista-exames">
+  {% for titulo_mes, exames in grupos %}
+    <div class="fam-mes" data-mes>{{ titulo_mes }}</div>
+    {% for e in exames %}
+    <article class="fam-exame" data-recado="{{ 1 if e.observacao_familia else 0 }}" data-pdf="{{ 1 if e.arquivo_nome else 0 }}">
+      <div class="fam-exame-topo">
+        <div>
+          <h3>{{ e.tipo_exame }}</h3>
+          <div class="fam-exame-meta">
+            <span class="dado-num">{{ e.data_exame|data_br }}</span>{% if e.laboratorio %} · {{ e.laboratorio }}{% endif %}
+            {% if e.medico_solicitante %}<br>Pedido por {{ e.medico_solicitante }}{% endif %}
+          </div>
+        </div>
+        {% if e.recente %}<span class="fam-st fam-st-novo">Recente</span>{% endif %}
+      </div>
+
+      {% if e.resultado %}
+      <div class="fam-resultado">{{ e.resultado }}
+        {% if e.valores_referencia %}<small>Referência: {{ e.valores_referencia }}</small>{% endif %}
+      </div>
+      {% endif %}
+
+      {% if e.observacao_familia %}
+      <div class="fam-recado">
+        <div class="fam-recado-titulo"><svg class="ti" aria-hidden="true"><use href="#ti-info-circle"/></svg> Recado da casa</div>
+        <p>{{ e.observacao_familia }}</p>
+      </div>
+      {% endif %}
+
+      {% if e.arquivo_nome %}
+        <a class="botao {{ 'botao-primario' if e.recente else 'botao-secundario' }}"
+           href="{{ url_for('servir_exame', nome_arquivo=e.arquivo_nome) }}" target="_blank" rel="noopener">
+          <svg class="ti" aria-hidden="true"><use href="#ti-paperclip"/></svg> Abrir o PDF do exame</a>
+      {% else %}
+        <div class="fam-sem-pdf"><svg class="ti" aria-hidden="true"><use href="#ti-file-text"/></svg> Sem PDF: resultado lançado pela equipe.</div>
+      {% endif %}
+    </article>
+    {% endfor %}
+  {% else %}
+    <div class="fam-bloco"><div class="fam-bloco-corpo"><p class="fam-vazio">Nenhum exame cadastrado ainda.</p></div></div>
+  {% endfor %}
+  <p class="fam-vazio" id="exames-sem-resultado" hidden>Nenhum exame neste filtro.</p>
+  </div>
+
+  {{ aviso_casa() }}
+  {{ aviso_leitura() }}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var barra = document.getElementById('filtros-exames');
+  if (!barra) return;
+  var cartoes = document.querySelectorAll('#lista-exames .fam-exame');
+  var meses = document.querySelectorAll('#lista-exames [data-mes]');
+  var vazio = document.getElementById('exames-sem-resultado');
+  barra.addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-filtro]');
+    if (!b) return;
+    barra.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+    var f = b.dataset.filtro, visiveis = 0;
+    cartoes.forEach(function (c) {
+      var ok = f === 'todos' || (f === 'recado' && c.dataset.recado === '1') || (f === 'pdf' && c.dataset.pdf === '1');
+      c.hidden = !ok;
+      if (ok) visiveis++;
+    });
+    // Mês sem nenhum exame visível também some.
+    meses.forEach(function (m) {
+      var el = m.nextElementSibling, tem = false;
+      while (el && !el.hasAttribute('data-mes') && el.id !== 'exames-sem-resultado') {
+        if (el.classList.contains('fam-exame') && !el.hidden) tem = true;
+        el = el.nextElementSibling;
+      }
+      m.hidden = !tem;
+    });
+    vazio.hidden = visiveis > 0;
+  });
+})();
+</script>
+{% endblock %}
