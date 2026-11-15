@@ -317,7 +317,7 @@ def iniciar_agendador():
 
 @contextmanager
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     try:
@@ -655,7 +655,29 @@ def init_db():
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_acessos_verif '
                        'ON acessos_identidade (verificacao_id)')
 
+        # Índices para a lista, a busca e as contagens continuarem rápidas com
+        # milhares de pacientes. Só aceleram consultas: não mudam nenhum dado.
+        for nome_idx, tabela, colunas in [
+            ('idx_pacientes_casa', 'pacientes', 'casa_id, ativo, nome'),
+            ('idx_condicoes_paciente', 'condicoes', 'paciente_id'),
+            ('idx_medicamentos_paciente', 'medicamentos', 'paciente_id, ativo'),
+            ('idx_horarios_medicamento', 'horarios_medicamento', 'medicamento_id'),
+            ('idx_doses_medicamento', 'doses_administradas', 'medicamento_id, horario_previsto'),
+            ('idx_exames_paciente', 'exames', 'paciente_id, data_exame'),
+            ('idx_visitas_paciente', 'visitas', 'paciente_id, data_visita'),
+            ('idx_evolucoes_paciente', 'evolucoes_medicas', 'paciente_id, data_evolucao'),
+            ('idx_usuarios_casa', 'usuarios', 'casa_id, perfil'),
+        ]:
+            cursor.execute(f'CREATE INDEX IF NOT EXISTS {nome_idx} ON {tabela} ({colunas})')
+
         conn.commit()
+    # WAL: quem lê não trava quem grava. A configuração fica gravada no arquivo do banco.
+    try:
+        conexao = sqlite3.connect(DB_PATH)
+        conexao.execute('PRAGMA journal_mode = WAL')
+        conexao.close()
+    except sqlite3.Error:
+        logging.getLogger('gestcare.db').warning('wal_indisponivel')
 
 
 def calcular_idade(data_nasc_str):
@@ -991,7 +1013,7 @@ def login_casa(slug):
                 if not usuario['paciente_id']:
                     return redirect(url_for('vincular_idoso'))
                 return redirect(url_for('painel_responsavel'))
-            return redirect(url_for('index'))
+            return redirect(url_for('hoje'))
         else:
             log.warning('login_falhou', extra={'gc_action': 'login', 'gc_email_hash': hash(email),
                         'gc_casa_slug': casa_pre['slug']})
@@ -1053,7 +1075,7 @@ def login():
                 if not usuario['paciente_id']:
                     return redirect(url_for('vincular_idoso'))
                 return redirect(url_for('painel_responsavel'))
-            return redirect(url_for('index'))
+            return redirect(url_for('hoje'))
         else:
             log.warning('login_falhou', extra={'gc_action': 'login', 'gc_email_hash': hash(email)})
             flash('E-mail ou senha incorretos.', 'erro')
@@ -1783,32 +1805,104 @@ def apagar_usuario_definitivo(usuario_id):
 # PACIENTES
 # ============================================================================
 
+POR_PAGINA = 25
+FAIXAS_IDADE = {'0-69': (0, 69), '70-79': (70, 79), '80-89': (80, 89), '90-200': (90, 200)}
+
+
+def _norm(valor):
+    """Minúsculas e sem acento, para a busca achar 'jose' em 'José'."""
+    if valor is None:
+        return ''
+    txt = unicodedata.normalize('NFD', str(valor).lower())
+    return ''.join(c for c in txt if unicodedata.category(c) != 'Mn')
+
+
+def _padrao_like(texto):
+    """Texto digitado vira padrão de busca 'contém', sem deixar % e _ virarem curinga."""
+    t = _norm(texto).replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+    return '%' + t + '%'
+
+
+def _aniversario(ano, hoje):
+    try:
+        return date(ano, hoje.month, hoje.day)
+    except ValueError:  # 29/02 em ano não bissexto
+        return date(ano, hoje.month, 28)
+
+
+def _filtros_pacientes(args):
+    """Lê e valida os filtros da lista (GET). Devolve (filtros, SQL, parâmetros)."""
+    f = {
+        'q': (args.get('q') or '').strip()[:80],
+        'quarto': (args.get('quarto') or '').strip()[:40],
+        'condicao': (args.get('condicao') or '').strip()[:80],
+        'idade': args.get('idade') if args.get('idade') in FAIXAS_IDADE else '',
+    }
+    where, params = ['p.ativo = 1', 'p.casa_id = ?'], [casa_id_atual()]
+    if f['q']:
+        where.append("norm(p.nome) LIKE ? ESCAPE '\\'")
+        params.append(_padrao_like(f['q']))
+    if f['quarto']:
+        where.append("norm(COALESCE(p.quarto, '')) = ?")
+        params.append(_norm(f['quarto']))
+    if f['condicao']:
+        where.append('EXISTS (SELECT 1 FROM condicoes c WHERE c.paciente_id = p.id AND norm(c.nome) = ?)')
+        params.append(_norm(f['condicao']))
+    if f['idade']:
+        minimo, maximo = FAIXAS_IDADE[f['idade']]
+        hoje = date.today()
+        # idade entre minimo e maximo = nascido depois de (hoje - maximo - 1 anos) e até (hoje - minimo anos)
+        where.append('p.data_nascimento <= ? AND p.data_nascimento > ?')
+        params.append(_aniversario(hoje.year - minimo, hoje).isoformat())
+        params.append(_aniversario(hoje.year - maximo - 1, hoje).isoformat())
+    return f, ' AND '.join(where), params
+
+
 @app.route('/')
 @login_obrigatorio
 @apenas_equipe
 def index():
+    casa = casa_id_atual()
     with get_db() as conn:
-        pacientes = conn.execute('''
+        conn.create_function('norm', 1, _norm, deterministic=True)
+        filtros, where, params = _filtros_pacientes(request.args)
+
+        total_casa = conn.execute(
+            'SELECT COUNT(*) FROM pacientes WHERE ativo = 1 AND casa_id = ?', (casa,)
+        ).fetchone()[0]
+        total = conn.execute(
+            f'SELECT COUNT(*) FROM pacientes p WHERE {where}', params
+        ).fetchone()[0]
+
+        paginas = max(1, -(-total // POR_PAGINA))
+        try:
+            pagina = int(request.args.get('pagina', 1))
+        except ValueError:
+            pagina = 1
+        pagina = min(max(pagina, 1), paginas)
+
+        pacientes = conn.execute(f'''
             SELECT p.*,
-                   (SELECT COUNT(*) FROM medicamentos WHERE paciente_id = p.id AND ativo = 1) as total_medicamentos,
-                   (SELECT COUNT(*) FROM condicoes WHERE paciente_id = p.id) as total_condicoes,
-                   (SELECT GROUP_CONCAT(nome, '|') FROM condicoes WHERE paciente_id = p.id) as nomes_condicoes
-            FROM pacientes p WHERE p.ativo = 1 AND p.casa_id = ? ORDER BY p.nome
-        ''', (casa_id_atual(),)).fetchall()
+                   (SELECT COUNT(*) FROM medicamentos WHERE paciente_id = p.id AND ativo = 1) AS total_medicamentos,
+                   (SELECT COUNT(*) FROM condicoes WHERE paciente_id = p.id) AS total_condicoes
+            FROM pacientes p WHERE {where}
+            ORDER BY p.nome COLLATE NOCASE, p.id
+            LIMIT ? OFFSET ?
+        ''', params + [POR_PAGINA, (pagina - 1) * POR_PAGINA]).fetchall()
         pacientes_list = []
-        quartos = set()
-        condicoes = set()
         for p in pacientes:
             p_dict = dict(p)
             p_dict['idade'] = calcular_idade(p_dict['data_nascimento'])
-            lista = [c.strip() for c in (p_dict.get('nomes_condicoes') or '').split('|') if c.strip()]
-            p_dict['condicoes_lista'] = lista
-            condicoes.update(lista)
-            if p_dict.get('quarto'):
-                quartos.add(str(p_dict['quarto']).strip())
             pacientes_list.append(p_dict)
+
+        quartos = [r[0] for r in conn.execute(
+            "SELECT DISTINCT TRIM(quarto) FROM pacientes "
+            "WHERE ativo = 1 AND casa_id = ? AND TRIM(COALESCE(quarto, '')) != ''", (casa,)).fetchall()]
         quartos_lista = sorted(quartos, key=lambda q: (len(q), q))
-        condicoes_lista = sorted(condicoes, key=str.lower)
+        condicoes_lista = sorted({r[0].strip() for r in conn.execute(
+            'SELECT DISTINCT c.nome FROM condicoes c JOIN pacientes p ON p.id = c.paciente_id '
+            'WHERE p.ativo = 1 AND p.casa_id = ?', (casa,)).fetchall() if r[0] and r[0].strip()},
+            key=str.lower)
 
         antibioticos_raw = conn.execute('''
             SELECT m.id, m.nome, m.data_fim_tratamento, p.id as paciente_id, p.nome as paciente_nome
@@ -1818,7 +1912,7 @@ def index():
               AND m.data_fim_tratamento IS NOT NULL
               AND date(m.data_fim_tratamento) <= date('now', 'localtime', '+2 days')
             ORDER BY m.data_fim_tratamento
-        ''', (casa_id_atual(),)).fetchall()
+        ''', (casa,)).fetchall()
         alertas_antibiotico = []
         for a in antibioticos_raw:
             a_dict = dict(a)
@@ -1834,18 +1928,64 @@ def index():
             JOIN medicamentos m ON h.medicamento_id = m.id
             JOIN pacientes p ON m.paciente_id = p.id
             WHERE m.ativo = 1 AND p.ativo = 1 AND p.casa_id = ?
-        ''', (casa_id_atual(),)).fetchone()[0]
+        ''', (casa,)).fetchone()[0]
 
         equipe_ativa_total = conn.execute('''
             SELECT COUNT(*) FROM usuarios
-            WHERE casa_id = ? AND ativo = 1 AND perfil != 'responsavel'
-        ''', (casa_id_atual(),)).fetchone()[0]
+            WHERE casa_id = ? AND ativo = 1 AND perfil != 'responsavel' AND excluido_em IS NULL
+        ''', (casa,)).fetchone()[0]
+    filtros_ativos = {k: v for k, v in filtros.items() if v}
     return render_template('index.html', pacientes=pacientes_list,
                            alertas_antibiotico=alertas_antibiotico,
                            agenda_hoje_total=agenda_hoje_total,
                            equipe_ativa_total=equipe_ativa_total,
                            quartos_lista=quartos_lista,
-                           condicoes_lista=condicoes_lista)
+                           condicoes_lista=condicoes_lista,
+                           filtros=filtros, filtros_ativos=filtros_ativos,
+                           total=total, total_casa=total_casa,
+                           pagina=pagina, paginas=paginas, por_pagina=POR_PAGINA)
+
+
+RECENTES_MAX = 6
+
+
+def _registrar_recente(paciente_id):
+    lista = [i for i in session.get('recentes', []) if i != paciente_id]
+    session['recentes'] = ([paciente_id] + lista)[:RECENTES_MAX]
+
+
+@app.route('/busca')
+@login_obrigatorio
+@apenas_equipe
+def busca_pacientes():
+    """Busca rápida (JSON) para o campo do topo e a tecla '/'. Sem texto, devolve os
+    últimos pacientes abertos por esta pessoa."""
+    q = (request.args.get('q') or '').strip()[:80]
+    casa = casa_id_atual()
+    with get_db() as conn:
+        conn.create_function('norm', 1, _norm, deterministic=True)
+        if len(q) >= 2:
+            linhas = conn.execute(
+                'SELECT id, nome, quarto FROM pacientes '
+                "WHERE ativo = 1 AND casa_id = ? AND norm(nome) LIKE ? ESCAPE '\\' "
+                'ORDER BY nome COLLATE NOCASE LIMIT 8',
+                (casa, _padrao_like(q))).fetchall()
+            recentes = False
+        elif q:
+            linhas, recentes = [], False
+        else:
+            ids = [i for i in session.get('recentes', []) if isinstance(i, int)]
+            linhas = []
+            if ids:
+                marcas = ','.join('?' * len(ids))
+                achados = {r['id']: r for r in conn.execute(
+                    f'SELECT id, nome, quarto FROM pacientes '
+                    f'WHERE ativo = 1 AND casa_id = ? AND id IN ({marcas})', [casa] + ids).fetchall()}
+                linhas = [achados[i] for i in ids if i in achados]
+            recentes = True
+    return jsonify(recentes=recentes, resultados=[
+        {'id': r['id'], 'nome': r['nome'], 'quarto': r['quarto'] or '',
+         'url': url_for('detalhe_paciente', paciente_id=r['id'])} for r in linhas])
 
 
 @app.route('/paciente/novo', methods=['GET', 'POST'])
@@ -2014,6 +2154,7 @@ def detalhe_paciente(paciente_id):
         if not paciente:
             flash('Paciente não encontrado.', 'erro')
             return redirect(url_for('index'))
+        _registrar_recente(paciente_id)
         paciente_dict = dict(paciente)
         paciente_dict['idade'] = calcular_idade(paciente_dict['data_nascimento'])
 
@@ -3267,6 +3408,305 @@ def agenda_diaria():
             agenda[h].append(item)
     quartos_lista = sorted(quartos, key=lambda q: (len(q), q))
     return render_template('agenda.html', agenda=agenda, quartos_lista=quartos_lista)
+
+
+# ============================================================================
+# HOJE (início por exceção) e VISÕES GERAIS (somente leitura)
+# ============================================================================
+
+TOLERANCIA_DOSE_MIN = 30
+
+
+def _doses_sem_registro(conn, casa, agora=None, janela_proximas_h=2):
+    """Doses de hoje da casa que passaram do horário sem registro e as próximas.
+
+    Mesma regra do portal da família: as doses registradas hoje cobrem os horários
+    do remédio em ordem. O sistema só guarda doses dadas, então 'sem registro' não
+    afirma que a dose foi pulada."""
+    agora = agora or datetime.now()
+    hoje = agora.strftime('%Y-%m-%d')
+    limite_atraso = (agora - timedelta(minutes=TOLERANCIA_DOSE_MIN)).strftime('%H:%M')
+    limite_proximas = (agora + timedelta(hours=janela_proximas_h)).strftime('%H:%M')
+    # Virada do dia: nos primeiros 30 min nada está atrasado; nas últimas 2 h a janela vai até 23:59.
+    if (agora - timedelta(minutes=TOLERANCIA_DOSE_MIN)).date() != agora.date():
+        limite_atraso = ''
+    if (agora + timedelta(hours=janela_proximas_h)).date() != agora.date():
+        limite_proximas = '23:59'
+    feitas = {r[0]: r[1] for r in conn.execute(
+        'SELECT d.medicamento_id, COUNT(*) FROM doses_administradas d '
+        'JOIN medicamentos m ON m.id = d.medicamento_id JOIN pacientes p ON p.id = m.paciente_id '
+        'WHERE p.casa_id = ? AND substr(d.horario_previsto, 1, 10) = ? GROUP BY d.medicamento_id',
+        (casa, hoje)).fetchall()}
+    linhas = conn.execute(
+        'SELECT m.id AS med_id, m.nome AS medicamento, m.dosagem, h.horario, '
+        'p.id AS paciente_id, p.nome AS paciente, p.quarto '
+        'FROM horarios_medicamento h JOIN medicamentos m ON m.id = h.medicamento_id '
+        'JOIN pacientes p ON p.id = m.paciente_id '
+        'WHERE m.ativo = 1 AND p.ativo = 1 AND p.casa_id = ? '
+        'ORDER BY m.id, h.horario', (casa,)).fetchall()
+    atrasadas, proximas, posicao = [], [], {}
+    for r in linhas:
+        i = posicao.get(r['med_id'], 0)
+        posicao[r['med_id']] = i + 1
+        if i < feitas.get(r['med_id'], 0):
+            continue  # já coberta por uma dose registrada
+        h = (r['horario'] or '')[:5]
+        item = dict(r)
+        item['horario'] = h
+        if h <= limite_atraso:
+            atrasadas.append(item)
+        elif h <= limite_proximas:  # dentro da tolerância ou nas próximas horas
+            proximas.append(item)
+    atrasadas.sort(key=lambda x: (x['horario'], _norm(x['paciente'])))
+    proximas.sort(key=lambda x: (x['horario'], _norm(x['paciente'])))
+    return atrasadas, proximas
+
+
+@app.route('/hoje')
+@login_obrigatorio
+@apenas_equipe
+def hoje():
+    casa = casa_id_atual()
+    agora = datetime.now()
+    hoje_str = agora.strftime('%Y-%m-%d')
+    with get_db() as conn:
+        atrasadas, proximas = _doses_sem_registro(conn, casa, agora)
+        antibioticos = conn.execute("""
+            SELECT m.nome, m.data_fim_tratamento, p.id AS paciente_id, p.nome AS paciente, p.quarto
+            FROM medicamentos m JOIN pacientes p ON p.id = m.paciente_id
+            WHERE m.ativo = 1 AND p.ativo = 1 AND m.eh_antibiotico = 1 AND p.casa_id = ?
+              AND m.data_fim_tratamento IS NOT NULL
+              AND date(m.data_fim_tratamento) <= date('now', 'localtime', '+2 days')
+            ORDER BY m.data_fim_tratamento LIMIT 10""", (casa,)).fetchall()
+        total_antibioticos = conn.execute("""
+            SELECT COUNT(*) FROM medicamentos m JOIN pacientes p ON p.id = m.paciente_id
+            WHERE m.ativo = 1 AND p.ativo = 1 AND m.eh_antibiotico = 1 AND p.casa_id = ?
+              AND m.data_fim_tratamento IS NOT NULL
+              AND date(m.data_fim_tratamento) <= date('now', 'localtime', '+2 days')""", (casa,)).fetchone()[0]
+        exames_pendentes = conn.execute("""
+            SELECT COUNT(*) FROM exames e JOIN pacientes p ON p.id = e.paciente_id
+            WHERE p.ativo = 1 AND p.casa_id = ? AND TRIM(COALESCE(e.resultado, '')) = ''
+              AND TRIM(COALESCE(e.arquivo_nome, '')) = ''""", (casa,)).fetchone()[0]
+        visitas_hoje = conn.execute("""
+            SELECT COUNT(*) FROM visitas v JOIN pacientes p ON p.id = v.paciente_id
+            WHERE p.ativo = 1 AND p.casa_id = ? AND v.data_visita = ?""", (casa, hoje_str)).fetchone()[0]
+        total_pacientes = conn.execute(
+            'SELECT COUNT(*) FROM pacientes WHERE ativo = 1 AND casa_id = ?', (casa,)).fetchone()[0]
+        ids = [i for i in session.get('recentes', []) if isinstance(i, int)]
+        recentes = []
+        if ids:
+            achados = {r['id']: r for r in conn.execute(
+                'SELECT id, nome, quarto FROM pacientes WHERE ativo = 1 AND casa_id = ? AND id IN (%s)'
+                % ','.join('?' * len(ids)), [casa] + ids).fetchall()}
+            recentes = [achados[i] for i in ids if i in achados]
+    ant = []
+    for a in antibioticos:
+        d = dict(a)
+        try:
+            d['dias'] = (datetime.strptime(d['data_fim_tratamento'][:10], '%Y-%m-%d').date() - agora.date()).days
+        except ValueError:
+            d['dias'] = None
+        ant.append(d)
+    return render_template('hoje.html', atrasadas=atrasadas[:15], total_atrasadas=len(atrasadas),
+                           proximas=proximas[:10], total_proximas=len(proximas),
+                           antibioticos=ant, total_antibioticos=total_antibioticos,
+                           exames_pendentes=exames_pendentes, visitas_hoje=visitas_hoje,
+                           total_pacientes=total_pacientes, recentes=recentes,
+                           hora=agora.strftime('%H:%M'), tolerancia=TOLERANCIA_DOSE_MIN)
+
+
+def _visao(titulo, icone, subtitulo, filtros, linhas, total, pagina, por_pagina, vazio, endpoint, extra=None):
+    paginas = max(1, -(-total // por_pagina))
+    return render_template('visao_geral.html', titulo=titulo, icone=icone, subtitulo=subtitulo,
+                           filtros=filtros, linhas=linhas, total=total, pagina=pagina, paginas=paginas,
+                           vazio=vazio, endpoint=endpoint,
+                           q=(request.args.get('q') or '').strip()[:80],
+                           args={k: v for k, v in request.args.items() if k != 'pagina' and v}, extra=extra)
+
+
+def _pagina_atual():
+    try:
+        return max(1, int(request.args.get('pagina', 1)))
+    except ValueError:
+        return 1
+
+
+def _opcao(nome, padrao, validas):
+    valor = request.args.get(nome, padrao)
+    return valor if valor in validas else padrao
+
+
+def _visao_sql(conn, select, tabela, where, params, ordem):
+    """Contagem + página (25) de uma visão geral. Sempre limitada à casa por 'where'."""
+    conn.create_function('norm', 1, _norm, deterministic=True)
+    total = conn.execute(f'SELECT COUNT(*) FROM {tabela} WHERE {where}', params).fetchone()[0]
+    pagina = min(_pagina_atual(), max(1, -(-total // POR_PAGINA)))
+    linhas = conn.execute(
+        f'SELECT {select} FROM {tabela} WHERE {where} ORDER BY {ordem} LIMIT ? OFFSET ?',
+        params + [POR_PAGINA, (pagina - 1) * POR_PAGINA]).fetchall()
+    return [dict(r) for r in linhas], total, pagina
+
+
+def _base_visao():
+    where, params = ['p.ativo = 1', 'p.casa_id = ?'], [casa_id_atual()]
+    q = (request.args.get('q') or '').strip()[:80]
+    if q:
+        where.append("norm(p.nome) LIKE ? ESCAPE '\\'")
+        params.append(_padrao_like(q))
+    return where, params
+
+
+@app.route('/exames')
+@login_obrigatorio
+@apenas_equipe
+def visao_exames():
+    where, params = _base_visao()
+    situacao = _opcao('situacao', 'pendente', ('pendente', 'todos'))
+    if situacao == 'pendente':
+        where.append("TRIM(COALESCE(e.resultado, '')) = '' AND TRIM(COALESCE(e.arquivo_nome, '')) = ''")
+    with get_db() as conn:
+        linhas, total, pagina = _visao_sql(
+            conn,
+            'e.id, e.tipo_exame, e.data_exame, e.laboratorio, e.resultado, e.arquivo_nome, '
+            'p.id AS paciente_id, p.nome AS paciente, p.quarto',
+            'exames e JOIN pacientes p ON p.id = e.paciente_id', ' AND '.join(where), params,
+            'e.data_exame DESC, e.id DESC')
+    itens = [{'paciente_id': r['paciente_id'], 'paciente': r['paciente'], 'quarto': r['quarto'],
+              'titulo': r['tipo_exame'], 'detalhe': r['laboratorio'] or '', 'data': r['data_exame'],
+              'selo': 'Sem resultado' if not (r['resultado'] or '').strip() and not (r['arquivo_nome'] or '').strip() else '',
+              'url': url_for('listar_exames', paciente_id=r['paciente_id'])} for r in linhas]
+    return _visao('Exames', 'microscope',
+                  'Comece pelo nome do paciente ou veja os exames que ainda estão sem resultado.',
+                  [{'nome': 'situacao', 'rotulo': 'Mostrar', 'valor': situacao,
+                    'opcoes': [('pendente', 'Sem resultado'), ('todos', 'Todos os exames')]}],
+                  itens, total, pagina, POR_PAGINA, 'Nenhum exame com esse recorte.', 'visao_exames')
+
+
+@app.route('/visitas')
+@login_obrigatorio
+@apenas_equipe
+def visao_visitas():
+    where, params = _base_visao()
+    periodo = _opcao('periodo', 'hoje', ('hoje', '7d', 'todas'))
+    hoje_d = date.today()
+    if periodo == 'hoje':
+        where.append('v.data_visita = ?'); params.append(hoje_d.isoformat())
+    elif periodo == '7d':
+        where.append('v.data_visita >= ?'); params.append((hoje_d - timedelta(days=6)).isoformat())
+    with get_db() as conn:
+        linhas, total, pagina = _visao_sql(
+            conn,
+            'v.id, v.visitante_nome, v.visitante_parentesco, v.data_visita, v.hora_entrada, v.hora_saida, '
+            'p.id AS paciente_id, p.nome AS paciente, p.quarto',
+            'visitas v JOIN pacientes p ON p.id = v.paciente_id', ' AND '.join(where), params,
+            'v.data_visita DESC, v.hora_entrada DESC, v.id DESC')
+    itens = [{'paciente_id': r['paciente_id'], 'paciente': r['paciente'], 'quarto': r['quarto'],
+              'titulo': r['visitante_nome'] + (f" ({r['visitante_parentesco']})" if r['visitante_parentesco'] else ''),
+              'detalhe': ' às '.join(x for x in [r['hora_entrada'], r['hora_saida']] if x) if r['hora_entrada'] else '',
+              'data': r['data_visita'], 'selo': '',
+              'url': url_for('listar_visitas', paciente_id=r['paciente_id'])} for r in linhas]
+    return _visao('Visitas', 'users', 'Quem visitou e quando. Abre mostrando as visitas de hoje.',
+                  [{'nome': 'periodo', 'rotulo': 'Período', 'valor': periodo,
+                    'opcoes': [('hoje', 'Hoje'), ('7d', 'Últimos 7 dias'), ('todas', 'Todas')]}],
+                  itens, total, pagina, POR_PAGINA, 'Nenhuma visita nesse período.', 'visao_visitas')
+
+
+@app.route('/evolucoes')
+@login_obrigatorio
+@apenas_equipe
+def visao_evolucoes():
+    where, params = _base_visao()
+    periodo = _opcao('periodo', '24h', ('24h', '7d', 'todas'))
+    hoje_d = date.today()
+    if periodo == '24h':
+        where.append('ev.data_evolucao >= ?'); params.append((hoje_d - timedelta(days=1)).isoformat())
+    elif periodo == '7d':
+        where.append('ev.data_evolucao >= ?'); params.append((hoje_d - timedelta(days=6)).isoformat())
+    with get_db() as conn:
+        linhas, total, pagina = _visao_sql(
+            conn,
+            'ev.id, ev.data_evolucao, ev.profissional, ev.especialidade, ev.descricao, '
+            'p.id AS paciente_id, p.nome AS paciente, p.quarto',
+            'evolucoes_medicas ev JOIN pacientes p ON p.id = ev.paciente_id', ' AND '.join(where), params,
+            'ev.data_evolucao DESC, ev.id DESC')
+    itens = [{'paciente_id': r['paciente_id'], 'paciente': r['paciente'], 'quarto': r['quarto'],
+              'titulo': ' · '.join(x for x in [r['profissional'], r['especialidade']] if x) or 'Evolução',
+              'detalhe': (r['descricao'] or '')[:160] + ('…' if len(r['descricao'] or '') > 160 else ''),
+              'data': r['data_evolucao'], 'selo': '',
+              'url': url_for('listar_evolucoes', paciente_id=r['paciente_id'])} for r in linhas]
+    return _visao('Evoluções', 'clipboard-list', 'Registros clínicos recentes de toda a casa.',
+                  [{'nome': 'periodo', 'rotulo': 'Período', 'valor': periodo,
+                    'opcoes': [('24h', 'Últimas 24 horas'), ('7d', 'Últimos 7 dias'), ('todas', 'Todas')]}],
+                  itens, total, pagina, POR_PAGINA, 'Nenhuma evolução nesse período.', 'visao_evolucoes')
+
+
+@app.route('/medicamentos')
+@login_obrigatorio
+@apenas_equipe
+def visao_medicamentos():
+    visao = _opcao('visao', 'antibioticos', ('antibioticos', 'atrasadas', 'todos'))
+    q = (request.args.get('q') or '').strip()[:80]
+    filtros = [{'nome': 'visao', 'rotulo': 'Mostrar', 'valor': visao,
+                'opcoes': [('antibioticos', 'Antibióticos em uso'), ('atrasadas', 'Doses sem registro hoje'),
+                           ('todos', 'Todos os medicamentos ativos')]}]
+    if visao == 'atrasadas':
+        with get_db() as conn:
+            atrasadas, _ = _doses_sem_registro(conn, casa_id_atual())
+        if q:
+            atrasadas = [a for a in atrasadas if _norm(q) in _norm(a['paciente'])]
+        total = len(atrasadas)
+        pagina = min(_pagina_atual(), max(1, -(-total // POR_PAGINA)))
+        parte = atrasadas[(pagina - 1) * POR_PAGINA: pagina * POR_PAGINA]
+        itens = [{'paciente_id': a['paciente_id'], 'paciente': a['paciente'], 'quarto': a['quarto'],
+                  'titulo': a['medicamento'] + (f" {a['dosagem']}" if a['dosagem'] else ''),
+                  'detalhe': 'Horário previsto ' + a['horario'], 'data': 'hoje', 'selo': 'Sem registro',
+                  'url': url_for('detalhe_paciente', paciente_id=a['paciente_id'])} for a in parte]
+        return _visao('Medicamentos', 'pill', 'Visão geral de remédios da casa. Só leitura: registre a dose na ficha do paciente.',
+                      filtros, itens, total, pagina, POR_PAGINA, 'Nenhuma dose pendente agora.', 'visao_medicamentos')
+    where, params = _base_visao()
+    where.append('m.ativo = 1')
+    if visao == 'antibioticos':
+        where.append('m.eh_antibiotico = 1')
+    with get_db() as conn:
+        linhas, total, pagina = _visao_sql(
+            conn,
+            'm.id, m.nome, m.dosagem, m.via_administracao, m.eh_antibiotico, m.data_fim_tratamento, '
+            'p.id AS paciente_id, p.nome AS paciente, p.quarto',
+            'medicamentos m JOIN pacientes p ON p.id = m.paciente_id', ' AND '.join(where), params,
+            'p.nome COLLATE NOCASE, m.nome COLLATE NOCASE')
+    itens = [{'paciente_id': r['paciente_id'], 'paciente': r['paciente'], 'quarto': r['quarto'],
+              'titulo': r['nome'] + (f" {r['dosagem']}" if r['dosagem'] else ''),
+              'detalhe': r['via_administracao'] or '',
+              'data': ('até ' + r['data_fim_tratamento']) if r['data_fim_tratamento'] else '',
+              'selo': 'Antibiótico' if r['eh_antibiotico'] else '',
+              'url': url_for('detalhe_paciente', paciente_id=r['paciente_id'])} for r in linhas]
+    return _visao('Medicamentos', 'pill', 'Visão geral de remédios da casa. Só leitura: registre a dose na ficha do paciente.',
+                  filtros, itens, total, pagina, POR_PAGINA, 'Nenhum medicamento com esse recorte.', 'visao_medicamentos')
+
+
+@app.route('/registros')
+@login_obrigatorio
+@apenas_equipe
+def registros():
+    """Índice das visões gerais (a barra do celular só tem 4 destinos)."""
+    casa = casa_id_atual()
+    hoje_d = date.today()
+    with get_db() as conn:
+        def n(sql, *p):
+            return conn.execute(sql, (casa, *p)).fetchone()[0]
+        contagens = {
+            'visao_exames': n("SELECT COUNT(*) FROM exames e JOIN pacientes p ON p.id = e.paciente_id "
+                              "WHERE p.ativo = 1 AND p.casa_id = ? AND TRIM(COALESCE(e.resultado, '')) = '' "
+                              "AND TRIM(COALESCE(e.arquivo_nome, '')) = ''"),
+            'visao_visitas': n('SELECT COUNT(*) FROM visitas v JOIN pacientes p ON p.id = v.paciente_id '
+                               'WHERE p.ativo = 1 AND p.casa_id = ? AND v.data_visita = ?', hoje_d.isoformat()),
+            'visao_evolucoes': n('SELECT COUNT(*) FROM evolucoes_medicas ev JOIN pacientes p ON p.id = ev.paciente_id '
+                                 'WHERE p.ativo = 1 AND p.casa_id = ? AND ev.data_evolucao >= ?',
+                                 (hoje_d - timedelta(days=1)).isoformat()),
+            'visao_medicamentos': n('SELECT COUNT(*) FROM medicamentos m JOIN pacientes p ON p.id = m.paciente_id '
+                                    'WHERE p.ativo = 1 AND p.casa_id = ? AND m.ativo = 1 AND m.eh_antibiotico = 1'),
+        }
+    return render_template('registros.html', contagens=contagens)
 
 
 # ============================================================================

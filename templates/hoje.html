@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block titulo %}Hoje{% endblock %}
+
+{% block conteudo %}
+<div class="pagina-cabecalho">
+  <div class="pagina-cabecalho-texto">
+    <h1 class="titulo-pagina">Hoje</h1>
+    <p class="subtitulo">Só o que pede atenção agora · {{ hora }} · {{ total_pacientes }} morador{{ 'es' if total_pacientes != 1 }} em {{ session.get('casa_nome', 'cuidado') }}</p>
+  </div>
+  <div class="pagina-acoes">
+    <a href="{{ url_for('index', foco=1) }}" class="botao botao-primario">
+      <svg class="ti" aria-hidden="true"><use href="#ti-search"/></svg> Buscar paciente
+    </a>
+  </div>
+</div>
+
+<div class="stats-grid">
+  <a class="stat-card {{ 'stat-alerta' if total_atrasadas }}" href="{{ url_for('visao_medicamentos', visao='atrasadas') }}">
+    <div class="stat-card-icone"><svg class="ti" aria-hidden="true"><use href="#ti-clock"/></svg></div>
+    <div class="stat-card-label">Doses sem registro</div>
+    <div class="stat-card-numero">{{ total_atrasadas }}</div>
+  </a>
+  <a class="stat-card {{ 'stat-alerta' if total_antibioticos }}" href="{{ url_for('visao_medicamentos') }}">
+    <div class="stat-card-icone"><svg class="ti" aria-hidden="true"><use href="#ti-urgent"/></svg></div>
+    <div class="stat-card-label">Antibióticos em fim de ciclo</div>
+    <div class="stat-card-numero">{{ total_antibioticos }}</div>
+  </a>
+  <a class="stat-card" href="{{ url_for('visao_exames') }}">
+    <div class="stat-card-icone"><svg class="ti" aria-hidden="true"><use href="#ti-microscope"/></svg></div>
+    <div class="stat-card-label">Exames sem resultado</div>
+    <div class="stat-card-numero">{{ exames_pendentes }}</div>
+  </a>
+  <a class="stat-card" href="{{ url_for('visao_visitas') }}">
+    <div class="stat-card-icone"><svg class="ti" aria-hidden="true"><use href="#ti-users"/></svg></div>
+    <div class="stat-card-label">Visitas hoje</div>
+    <div class="stat-card-numero">{{ visitas_hoje }}</div>
+  </a>
+</div>
+
+<section class="secao" aria-labelledby="h-atrasadas">
+  <h2 class="secao-titulo" id="h-atrasadas">Doses sem registro (passou de {{ tolerancia }} min do horário)</h2>
+  {% if atrasadas %}
+  <div class="lista-visao">
+    {% for a in atrasadas %}
+    <a class="linha-visao" href="{{ url_for('detalhe_paciente', paciente_id=a.paciente_id) }}">
+      <span class="linha-visao-hora">{{ a.horario }}</span>
+      <span class="linha-visao-corpo">
+        <span><strong>{{ a.paciente }}</strong>{% if a.quarto %} <span class="linha-visao-suave">· Quarto {{ a.quarto }}</span>{% endif %}</span>
+        <span class="linha-visao-suave">{{ a.medicamento }}{% if a.dosagem %} {{ a.dosagem }}{% endif %}</span>
+      </span>
+      <span class="selo-visao selo-visao-alerta">Sem registro</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% if total_atrasadas > atrasadas|length %}
+  <p class="linha-visao-suave"><a href="{{ url_for('visao_medicamentos', visao='atrasadas') }}">Ver as {{ total_atrasadas }} doses</a></p>
+  {% endif %}
+  {% else %}
+  <p class="linha-visao-suave">Nenhuma dose atrasada agora.</p>
+  {% endif %}
+</section>
+
+<section class="secao" aria-labelledby="h-proximas">
+  <h2 class="secao-titulo" id="h-proximas">Próximas doses (2 horas)</h2>
+  {% if proximas %}
+  <div class="lista-visao">
+    {% for a in proximas %}
+    <a class="linha-visao" href="{{ url_for('detalhe_paciente', paciente_id=a.paciente_id) }}">
+      <span class="linha-visao-hora">{{ a.horario }}</span>
+      <span class="linha-visao-corpo">
+        <span><strong>{{ a.paciente }}</strong>{% if a.quarto %} <span class="linha-visao-suave">· Quarto {{ a.quarto }}</span>{% endif %}</span>
+        <span class="linha-visao-suave">{{ a.medicamento }}{% if a.dosagem %} {{ a.dosagem }}{% endif %}</span>
+      </span>
+    </a>
+    {% endfor %}
+  </div>
+  {% if total_proximas > proximas|length %}
+  <p class="linha-visao-suave"><a href="{{ url_for('agenda_diaria') }}">Ver a agenda completa</a></p>
+  {% endif %}
+  {% else %}
+  <p class="linha-visao-suave">Nenhuma dose nas próximas 2 horas.</p>
+  {% endif %}
+</section>
+
+{% if antibioticos %}
+<section class="secao" aria-labelledby="h-antib">
+  <h2 class="secao-titulo" id="h-antib">Antibióticos terminando</h2>
+  <div class="lista-visao">
+    {% for a in antibioticos %}
+    <a class="linha-visao" href="{{ url_for('detalhe_paciente', paciente_id=a.paciente_id) }}">
+      <span class="linha-visao-corpo">
+        <span><strong>{{ a.paciente }}</strong>{% if a.quarto %} <span class="linha-visao-suave">· Quarto {{ a.quarto }}</span>{% endif %}</span>
+        <span class="linha-visao-suave">{{ a.nome }}</span>
+      </span>
+      {% if a.dias is not none %}
+      <span class="selo-visao selo-visao-alerta">
+        {% if a.dias < 0 %}Encerrado há {{ -a.dias }} dia{{ 's' if -a.dias != 1 }}{% elif a.dias == 0 %}Termina hoje{% else %}Termina em {{ a.dias }} dia{{ 's' if a.dias != 1 }}{% endif %}
+      </span>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+{% if recentes %}
+<section class="secao" aria-labelledby="h-recentes">
+  <h2 class="secao-titulo" id="h-recentes">Abertos recentemente</h2>
+  <div class="lista-visao">
+    {% for r in recentes %}
+    <a class="linha-visao" href="{{ url_for('detalhe_paciente', paciente_id=r.id) }}">
+      <span class="linha-visao-corpo"><span><strong>{{ r.nome }}</strong>{% if r.quarto %} <span class="linha-visao-suave">· Quarto {{ r.quarto }}</span>{% endif %}</span></span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}
