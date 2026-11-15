@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+{% include 'partials/_cabeca.html' %}
+  <title>{% block titulo %}GestCare{% endblock %} — GestCare</title>
+</head>
+<body class="corpo-publico">
+
+{% include 'partials/_icones.html' %}
+
+<a class="pular-para-conteudo" href="#conteudo">Pular para o conteúdo</a>
+
+<main class="publico" id="conteudo" tabindex="-1">
+  <div class="publico-card">
+
+    <aside class="publico-marca">
+      <div class="publico-marca-topo">
+        <span class="logo-mark"><svg class="ti" aria-hidden="true"><use href="#ti-heartbeat"/></svg></span>
+        <span class="logo">GestCare</span>
+      </div>
+
+      <div class="publico-marca-corpo">
+        <p class="publico-marca-frase">Cuidar de quem um dia cuidou de você.</p>
+        <dl class="publico-marca-lista">
+          <div>
+            <dt>Agenda de medicação</dt>
+            <dd>Por horário, com registro de quem administrou.</dd>
+          </div>
+          <div>
+            <dt>Ficha do morador</dt>
+            <dd>Condições, alergias, exames e evoluções no mesmo lugar.</dd>
+          </div>
+          <div>
+            <dt>Portal da família</dt>
+            <dd>O que aconteceu no dia, sem jargão clínico.</dd>
+          </div>
+        </dl>
+      </div>
+
+      {% block marca_rodape %}{% endblock %}
+    </aside>
+
+    <div class="publico-conteudo">
+      {% with mensagens = get_flashed_messages(with_categories=true) %}
+        {% if mensagens %}
+          <div class="pilha-alertas" role="status" aria-live="polite">
+            {% for categoria, msg in mensagens %}
+              {% set tom = {'sucesso': 'sucesso', 'erro': 'erro', 'alerta': 'alerta', 'info': 'info'}.get(categoria, 'info') %}
+              <div class="alerta alerta-{{ tom }}">
+                <svg class="ti alerta-icone" aria-hidden="true"><use href="#ti-{{
+                  {'sucesso':'circle-check','erro':'alert-hexagon','alerta':'alert-triangle','info':'info-circle'}[tom] }}"/></svg>
+                <span>{{ msg }}</span>
+              </div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+      {% block conteudo %}{% endblock %}
+    </div>
+
+  </div>
+</main>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var token = '{{ csrf_token() }}';
+  document.querySelectorAll('form[method="POST"], form[method="post"]').forEach(function (f) {
+    if (!f.querySelector('input[name="csrf_token"]')) {
+      var inp = document.createElement('input');
+      inp.type = 'hidden'; inp.name = 'csrf_token'; inp.value = token;
+      f.appendChild(inp);
+    }
+  });
+});
+</script>
+<script src="{{ url_for('static', filename='js/app.js') }}?v={{ versao_assets }}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>
