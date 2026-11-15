@@ -67,6 +67,46 @@ def checar_csrf():
             return redirect(url_for('login'))
 
 
+# Rotas que não dependem de sessão: não faz sentido consultar o banco nelas.
+_PREFIXOS_SEM_CHECAGEM_SESSAO = ('/static/', '/login', '/entrar/', '/responsavel/cadastro', '/logout')
+
+@app.before_request
+def revalidar_sessao():
+    """Derruba a sessão quando a conta foi desativada ou excluída, quando o perfil
+    mudou ou quando a casa foi desativada. Antes, desativar um usuário só valia no
+    próximo login: quem já estava logado continuava com acesso."""
+    usuario_id = session.get('usuario_id')
+    if not usuario_id or request.path.startswith(_PREFIXOS_SEM_CHECAGEM_SESSAO):
+        return None
+    with get_db() as conn:
+        usuario = conn.execute(
+            'SELECT u.ativo, u.perfil, u.casa_id, c.ativo AS casa_ativa '
+            'FROM usuarios u LEFT JOIN casas c ON c.id = u.casa_id WHERE u.id = ?',
+            (usuario_id,)
+        ).fetchone()
+    motivo = None
+    if not usuario:
+        motivo = 'conta_excluida'
+    elif not usuario['ativo']:
+        motivo = 'conta_desativada'
+    elif usuario['perfil'] != session.get('usuario_perfil'):
+        motivo = 'perfil_alterado'
+    elif usuario['casa_id'] != session.get('casa_id'):
+        motivo = 'casa_alterada'
+    elif usuario['casa_id'] and not usuario['casa_ativa']:
+        motivo = 'casa_desativada'
+    if motivo is None:
+        return None
+    log.warning('sessao_encerrada', extra={'gc_action': 'revalidar_sessao',
+                'gc_user_id': usuario_id, 'gc_motivo': motivo})
+    casa_slug = session.get('casa_slug')
+    session.clear()
+    flash('Sua sessão foi encerrada. Entre novamente.', 'erro')
+    if casa_slug:
+        return redirect(url_for('login_casa', slug=casa_slug))
+    return redirect(url_for('login'))
+
+
 @app.errorhandler(413)
 def arquivo_muito_grande(e):
     flash('Arquivo muito grande. O limite é 16 MB.', 'erro')
@@ -124,7 +164,29 @@ def injetar_versao_assets():
     return dict(versao_assets=versao_assets)
 
 DB_PATH = os.path.join(os.path.dirname(__file__), 'database', 'casa_idosos.db')
-UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'static', 'uploads', 'exames')
+# Exames ficam FORA de static/: o Flask serve static/ sem login, então um arquivo
+# ali abriria para qualquer pessoa com o link. O único caminho de acesso é a rota
+# /exame/arquivo/<nome>, que confere sessão, casa e paciente vinculado.
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads', 'exames')
+_UPLOAD_FOLDER_ANTIGO = os.path.join(os.path.dirname(__file__), 'static', 'uploads', 'exames')
+
+
+def _migrar_exames_da_pasta_publica():
+    """Move exames salvos por versões anteriores em static/uploads/exames/ para a
+    pasta protegida. Idempotente: não sobrescreve arquivo que já exista no destino."""
+    if not os.path.isdir(_UPLOAD_FOLDER_ANTIGO):
+        return
+    movidos = 0
+    for nome in os.listdir(_UPLOAD_FOLDER_ANTIGO):
+        origem = os.path.join(_UPLOAD_FOLDER_ANTIGO, nome)
+        destino = os.path.join(UPLOAD_FOLDER, nome)
+        if os.path.isfile(origem) and not os.path.exists(destino):
+            os.replace(origem, destino)
+            movidos += 1
+    if movidos:
+        logging.getLogger('gestcare').info(
+            'exames_migrados_para_pasta_protegida', extra={'gc_action': 'migrar_exames',
+                                                           'gc_total': movidos})
 EXTENSOES_PERMITIDAS = {'pdf', 'png', 'jpg', 'jpeg', 'webp'}
 
 # ============================================================================
@@ -268,6 +330,7 @@ def get_db():
 def init_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    _migrar_exames_da_pasta_publica()
     with get_db() as conn:
         cursor = conn.cursor()
 
@@ -504,6 +567,13 @@ def init_db():
                 FOREIGN KEY (paciente_id) REFERENCES pacientes(id) ON DELETE CASCADE
             )
         ''')
+
+        # Recado da casa para a família: único texto do exame que o portal do
+        # responsável mostra. 'observacoes' continua sendo nota interna da equipe.
+        try:
+            cursor.execute('ALTER TABLE exames ADD COLUMN observacao_familia TEXT')
+        except Exception:
+            pass
 
         conn.commit()
 
@@ -2242,13 +2312,15 @@ def novo_exame(paciente_id):
         conn.execute('''
             INSERT INTO exames
                 (paciente_id, tipo_exame, data_exame, laboratorio,
-                 medico_solicitante, resultado, valores_referencia, arquivo_nome, observacoes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 medico_solicitante, resultado, valores_referencia, arquivo_nome, observacoes,
+                 observacao_familia)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             paciente_id, dados.get('tipo_exame'), dados.get('data_exame'),
             dados.get('laboratorio'), dados.get('medico_solicitante'),
             dados.get('resultado'), dados.get('valores_referencia'),
-            arquivo_nome, dados.get('observacoes')
+            arquivo_nome, dados.get('observacoes'),
+            (dados.get('observacao_familia') or '').strip() or None
         ))
     flash('Exame registrado com sucesso!', 'sucesso')
     return redirect(url_for('listar_exames', paciente_id=paciente_id))
