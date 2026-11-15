@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block titulo %}Registros{% endblock %}
+
+{% block conteudo %}
+<div class="pagina-cabecalho">
+  <div class="pagina-cabecalho-texto">
+    <h1 class="titulo-pagina">Registros</h1>
+    <p class="subtitulo">Visões gerais da casa. Cada uma abre pedindo o paciente, sem listar todo mundo.</p>
+  </div>
+</div>
+<div class="stats-grid">
+  {% for endpoint, rotulo, icone, nota in [
+      ('visao_exames', 'Exames', 'microscope', 'sem resultado'),
+      ('visao_visitas', 'Visitas', 'users', 'hoje'),
+      ('visao_evolucoes', 'Evoluções', 'clipboard-list', 'nas últimas 24 horas'),
+      ('visao_medicamentos', 'Medicamentos', 'pill', 'antibióticos em uso')] %}
+  <a class="stat-card" href="{{ url_for(endpoint) }}">
+    <div class="stat-card-icone"><svg class="ti" aria-hidden="true"><use href="#ti-{{ icone }}"/></svg></div>
+    <div class="stat-card-label">{{ rotulo }} · {{ nota }}</div>
+    <div class="stat-card-numero">{{ contagens[endpoint] }}</div>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}
