@@ -80,12 +80,12 @@ def revalidar_sessao():
         return None
     with get_db() as conn:
         usuario = conn.execute(
-            'SELECT u.ativo, u.perfil, u.casa_id, c.ativo AS casa_ativa '
+            'SELECT u.ativo, u.perfil, u.casa_id, u.excluido_em, c.ativo AS casa_ativa '
             'FROM usuarios u LEFT JOIN casas c ON c.id = u.casa_id WHERE u.id = ?',
             (usuario_id,)
         ).fetchone()
     motivo = None
-    if not usuario:
+    if not usuario or usuario['excluido_em']:
         motivo = 'conta_excluida'
     elif not usuario['ativo']:
         motivo = 'conta_desativada'
@@ -462,6 +462,13 @@ def init_db():
             cursor.execute('ALTER TABLE usuarios ADD COLUMN casa_id INTEGER REFERENCES casas(id)')
         except Exception:
             pass
+        # Exclusão reversível: em vez de apagar a linha, marca quando e por quem
+        # foi excluído. O usuário fica fora da lista, sem acesso, e pode ser restaurado.
+        for coluna in ('excluido_em TEXT', 'excluido_por INTEGER', 'atualizado_em TEXT'):
+            try:
+                cursor.execute(f'ALTER TABLE usuarios ADD COLUMN {coluna}')
+            except Exception:
+                pass
 
         # Migração: se já existem pacientes/usuários sem casa (banco anterior ao
         # multi-tenant), cria uma "Casa Padrão" e vincula todos os registros a ela.
@@ -877,7 +884,7 @@ def login_casa(slug):
 
         with get_db() as conn:
             usuario = conn.execute(
-                'SELECT * FROM usuarios WHERE LOWER(email) = LOWER(?) AND ativo = 1',
+                'SELECT * FROM usuarios WHERE LOWER(email) = LOWER(?) AND ativo = 1 AND excluido_em IS NULL',
                 (email,)
             ).fetchone()
             casa = None
@@ -942,7 +949,7 @@ def login():
 
         with get_db() as conn:
             usuario = conn.execute(
-                'SELECT * FROM usuarios WHERE LOWER(email) = LOWER(?) AND ativo = 1',
+                'SELECT * FROM usuarios WHERE LOWER(email) = LOWER(?) AND ativo = 1 AND excluido_em IS NULL',
                 (email,)
             ).fetchone()
             casa = None
@@ -1282,64 +1289,195 @@ def painel_responsavel():
 # USUÁRIOS
 # ============================================================================
 
+# Perfis que o admin da casa pode atribuir. 'superadmin' nunca entra aqui.
+PERFIS_DA_CASA = ('enfermeiro', 'admin', 'responsavel')
+SENHA_MINIMA = 6
+
+
+def _pacientes_da_casa(conn):
+    return conn.execute(
+        'SELECT id, nome, cpf, rg FROM pacientes WHERE ativo = 1 AND casa_id = ? ORDER BY nome',
+        (casa_id_atual(),)
+    ).fetchall()
+
+
+def _buscar_usuario_da_casa(conn, usuario_id, excluido=False):
+    """Usuário da casa logada. Por padrão só os não excluídos; excluido=True
+    busca apenas os que estão na lixeira."""
+    filtro = 'excluido_em IS NOT NULL' if excluido else 'excluido_em IS NULL'
+    return conn.execute(
+        f"SELECT * FROM usuarios WHERE id = ? AND casa_id = ? AND perfil != 'superadmin' AND {filtro}",
+        (usuario_id, casa_id_atual())
+    ).fetchone()
+
+
+def _email_de_usuario_excluido(conn, email):
+    """True quando o e-mail pertence a um usuário excluído desta casa."""
+    return conn.execute(
+        'SELECT 1 FROM usuarios WHERE LOWER(email) = LOWER(?) AND casa_id = ? AND excluido_em IS NOT NULL',
+        (email, casa_id_atual())
+    ).fetchone() is not None
+
+
+def _ler_form_usuario(conn, exigir_senha):
+    """Lê e valida o formulário de usuário (novo ou edição).
+    Retorna (dados, erro). A senha só é validada quando informada, ou quando
+    exigir_senha=True (cadastro novo)."""
+    f = request.form
+    dados = {
+        'nome':   f.get('nome', '').strip(),
+        'email':  f.get('email', '').strip().lower(),
+        'perfil': f.get('perfil', 'enfermeiro'),
+        'paciente_id': f.get('paciente_id') or None,
+        'cpf':    f.get('cpf', '').strip(),
+        'senha':  f.get('senha', ''),
+        'senha2': f.get('confirmar_senha', ''),
+    }
+    if not dados['nome'] or not dados['email']:
+        return dados, 'Preencha todos os campos obrigatórios.'
+    if '@' not in dados['email']:
+        return dados, 'Informe um e-mail válido.'
+    if dados['perfil'] not in PERFIS_DA_CASA:
+        return dados, 'Perfil inválido.'
+
+    if dados['perfil'] == 'responsavel':
+        if dados['paciente_id']:
+            try:
+                dados['paciente_id'] = int(dados['paciente_id'])
+            except ValueError:
+                return dados, 'Paciente inválido.'
+            if not buscar_paciente_da_casa(conn, dados['paciente_id']):
+                return dados, 'Paciente inválido.'
+        if dados['cpf']:
+            if not cpf_valido(dados['cpf']):
+                return dados, 'CPF inválido. Confira os números digitados.'
+            dados['cpf'] = formatar_cpf(dados['cpf'])
+    else:
+        # Vínculo com paciente e CPF de responsável só fazem sentido nesse perfil.
+        dados['paciente_id'] = None
+
+    if exigir_senha and not dados['senha']:
+        return dados, 'Preencha todos os campos obrigatórios.'
+    if dados['senha'] or dados['senha2']:
+        if len(dados['senha']) < SENHA_MINIMA:
+            return dados, f'A senha deve ter pelo menos {SENHA_MINIMA} caracteres.'
+        if dados['senha2'] and dados['senha'] != dados['senha2']:
+            return dados, 'As senhas não coincidem.'
+        if not exigir_senha and dados['senha'] != dados['senha2']:
+            return dados, 'As senhas não coincidem.'
+    return dados, None
+
+
 @app.route('/usuarios')
 @login_obrigatorio
 @apenas_admin
 def listar_usuarios():
+    ver_excluidos = request.args.get('ver') == 'excluidos'
     with get_db() as conn:
-        usuarios = conn.execute('''
+        usuarios = conn.execute(f'''
             SELECT u.id, u.nome, u.email, u.perfil, u.ativo, u.criado_em,
-                   u.paciente_id, p.nome as paciente_nome
+                   u.paciente_id, p.nome as paciente_nome,
+                   strftime('%d/%m/%Y às %H:%M', u.excluido_em, 'localtime') as excluido_em_fmt,
+                   quem.nome as excluido_por_nome
             FROM usuarios u
             LEFT JOIN pacientes p ON u.paciente_id = p.id
-            WHERE u.casa_id = ?
-            ORDER BY u.nome
+            LEFT JOIN usuarios quem ON quem.id = u.excluido_por
+            WHERE u.casa_id = ? AND u.perfil != 'superadmin'
+              AND u.excluido_em IS {'NOT NULL' if ver_excluidos else 'NULL'}
+            ORDER BY {'u.excluido_em DESC' if ver_excluidos else 'u.nome'}
         ''', (casa_id_atual(),)).fetchall()
-    return render_template('usuarios.html', usuarios=usuarios)
+        total_excluidos = conn.execute(
+            'SELECT COUNT(*) FROM usuarios WHERE casa_id = ? AND excluido_em IS NOT NULL',
+            (casa_id_atual(),)
+        ).fetchone()[0]
+    return render_template('usuarios.html', usuarios=usuarios,
+                           ver_excluidos=ver_excluidos, total_excluidos=total_excluidos)
 
 
 @app.route('/usuarios/novo', methods=['GET', 'POST'])
 @login_obrigatorio
 @apenas_admin
 def novo_usuario():
-    if request.method == 'POST':
-        nome        = request.form.get('nome', '').strip()
-        email       = request.form.get('email', '').strip().lower()
-        senha       = request.form.get('senha', '')
-        perfil      = request.form.get('perfil', 'enfermeiro')
-        paciente_id = request.form.get('paciente_id') or None
-
-        with get_db() as conn:
-            pacientes = conn.execute(
-                'SELECT id, nome, cpf, rg FROM pacientes WHERE ativo = 1 AND casa_id = ? ORDER BY nome',
-                (casa_id_atual(),)
-            ).fetchall()
-
-        if not nome or not email or not senha:
-            flash('Preencha todos os campos obrigatórios.', 'erro')
-            return render_template('usuario_form.html', pacientes=pacientes)
-        if len(senha) < 6:
-            flash('A senha deve ter pelo menos 6 caracteres.', 'erro')
-            return render_template('usuario_form.html', pacientes=pacientes)
-
-        try:
-            with get_db() as conn:
-                conn.execute(
-                    'INSERT INTO usuarios (nome, email, senha, perfil, paciente_id, casa_id) VALUES (?, ?, ?, ?, ?, ?)',
-                    (nome, email, hash_senha(senha), perfil,
-                     paciente_id if perfil == 'responsavel' else None, casa_id_atual())
-                )
-            flash(f'Usuário {nome} criado com sucesso!', 'sucesso')
-            return redirect(url_for('listar_usuarios'))
-        except Exception:
-            flash('Erro: este e-mail já está cadastrado.', 'erro')
-
     with get_db() as conn:
-        pacientes = conn.execute(
-            'SELECT id, nome, cpf, rg FROM pacientes WHERE ativo = 1 AND casa_id = ? ORDER BY nome',
-            (casa_id_atual(),)
-        ).fetchall()
-    return render_template('usuario_form.html', pacientes=pacientes)
+        pacientes = _pacientes_da_casa(conn)
+        if request.method == 'POST':
+            dados, erro = _ler_form_usuario(conn, exigir_senha=True)
+            if erro:
+                flash(erro, 'erro')
+                return render_template('usuario_form.html', pacientes=pacientes, usuario=None, form=dados)
+            try:
+                cursor = conn.execute(
+                    'INSERT INTO usuarios (nome, email, senha, perfil, paciente_id, cpf, casa_id) '
+                    'VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    (dados['nome'], dados['email'], hash_senha(dados['senha']), dados['perfil'],
+                     dados['paciente_id'], (dados['cpf'] or None) if dados['perfil'] == 'responsavel' else None,
+                     casa_id_atual())
+                )
+            except sqlite3.IntegrityError:
+                if _email_de_usuario_excluido(conn, dados['email']):
+                    flash('Este e-mail pertence a um usuário excluído. Restaure-o na aba "Excluídos".', 'erro')
+                else:
+                    flash('Erro: este e-mail já está cadastrado.', 'erro')
+                return render_template('usuario_form.html', pacientes=pacientes, usuario=None, form=dados)
+            log.info('usuario_criado', extra={'gc_action': 'novo_usuario', 'gc_user_id': session.get('usuario_id'),
+                     'gc_alvo_id': cursor.lastrowid, 'gc_perfil': dados['perfil'], 'gc_casa_id': casa_id_atual()})
+            flash(f'Usuário {dados["nome"]} criado com sucesso!', 'sucesso')
+            return redirect(url_for('listar_usuarios'))
+    return render_template('usuario_form.html', pacientes=pacientes, usuario=None, form=None)
+
+
+@app.route('/usuarios/<int:usuario_id>/editar', methods=['GET', 'POST'])
+@login_obrigatorio
+@apenas_admin
+def editar_usuario(usuario_id):
+    # A própria conta é editada em "Meu perfil", que pede a senha atual para
+    # trocar e-mail ou senha e não deixa o admin rebaixar o próprio perfil.
+    if usuario_id == session.get('usuario_id'):
+        return redirect(url_for('meu_perfil'))
+    with get_db() as conn:
+        usuario = _buscar_usuario_da_casa(conn, usuario_id)
+        if not usuario:
+            flash('Usuário não encontrado.', 'erro')
+            return redirect(url_for('listar_usuarios'))
+        pacientes = _pacientes_da_casa(conn)
+
+        if request.method == 'POST':
+            dados, erro = _ler_form_usuario(conn, exigir_senha=False)
+            if erro:
+                flash(erro, 'erro')
+                return render_template('usuario_form.html', pacientes=pacientes, usuario=usuario, form=dados)
+
+            cpf = (dados['cpf'] or None) if dados['perfil'] == 'responsavel' else usuario['cpf']
+            novos = {'nome': dados['nome'], 'email': dados['email'], 'perfil': dados['perfil'],
+                     'paciente_id': dados['paciente_id'], 'cpf': cpf}
+            alterados = [campo for campo, valor in novos.items() if usuario[campo] != valor]
+            if dados['senha']:
+                novos['senha'] = hash_senha(dados['senha'])
+                alterados.append('senha')
+            if not alterados:
+                flash('Nenhuma alteração para salvar.', 'sucesso')
+                return redirect(url_for('listar_usuarios'))
+
+            sets = ', '.join(f'{campo} = ?' for campo in novos)
+            try:
+                conn.execute(
+                    f"UPDATE usuarios SET {sets}, atualizado_em = datetime('now') WHERE id = ? AND casa_id = ?",
+                    (*novos.values(), usuario_id, casa_id_atual())
+                )
+            except sqlite3.IntegrityError:
+                flash('Este e-mail já está em uso por outra conta.', 'erro')
+                return render_template('usuario_form.html', pacientes=pacientes, usuario=usuario, form=dados)
+
+            # Só os nomes dos campos vão para o log, nunca os valores.
+            log.info('usuario_editado', extra={'gc_action': 'editar_usuario', 'gc_user_id': session.get('usuario_id'),
+                     'gc_alvo_id': usuario_id, 'gc_campos': ','.join(alterados), 'gc_casa_id': casa_id_atual()})
+            msg = f'Usuário {dados["nome"]} atualizado.'
+            if 'perfil' in alterados:
+                msg += ' A sessão dele foi encerrada e o novo perfil vale no próximo login.'
+            flash(msg, 'sucesso')
+            return redirect(url_for('listar_usuarios'))
+
+    return render_template('usuario_form.html', pacientes=pacientes, usuario=usuario, form=None)
 
 
 @app.route('/usuarios/<int:usuario_id>/toggle', methods=['POST'])
@@ -1350,15 +1488,17 @@ def toggle_usuario(usuario_id):
         flash('Você não pode desativar sua própria conta.', 'erro')
         return redirect(url_for('listar_usuarios'))
     with get_db() as conn:
-        usuario = conn.execute(
-            'SELECT ativo, nome FROM usuarios WHERE id = ? AND casa_id = ?',
-            (usuario_id, casa_id_atual())
-        ).fetchone()
+        usuario = _buscar_usuario_da_casa(conn, usuario_id)
         if usuario:
             novo_status = 0 if usuario['ativo'] else 1
-            conn.execute('UPDATE usuarios SET ativo = ? WHERE id = ?', (novo_status, usuario_id))
+            conn.execute("UPDATE usuarios SET ativo = ?, atualizado_em = datetime('now') WHERE id = ?",
+                         (novo_status, usuario_id))
             acao = 'ativado' if novo_status else 'desativado'
+            log.info(f'usuario_{acao}', extra={'gc_action': 'toggle_usuario', 'gc_user_id': session.get('usuario_id'),
+                     'gc_alvo_id': usuario_id, 'gc_casa_id': casa_id_atual()})
             flash(f'Usuário {usuario["nome"]} {acao}.', 'sucesso')
+        else:
+            flash('Usuário não encontrado.', 'erro')
     return redirect(url_for('listar_usuarios'))
 
 
@@ -1366,28 +1506,77 @@ def toggle_usuario(usuario_id):
 @login_obrigatorio
 @apenas_admin
 def excluir_usuario(usuario_id):
+    """Exclusão reversível: o usuário perde o acesso na hora (a sessão dele cai
+    no próximo clique) e vai para a aba "Excluídos", de onde pode ser restaurado."""
     if usuario_id == session.get('usuario_id'):
         flash('Você não pode excluir sua própria conta.', 'erro')
         return redirect(url_for('listar_usuarios'))
     with get_db() as conn:
-        usuario = conn.execute(
-            'SELECT nome, perfil FROM usuarios WHERE id = ? AND casa_id = ?',
-            (usuario_id, casa_id_atual())
-        ).fetchone()
+        usuario = _buscar_usuario_da_casa(conn, usuario_id)
         if not usuario:
             flash('Usuário não encontrado.', 'erro')
             return redirect(url_for('listar_usuarios'))
         if usuario['perfil'] == 'admin':
             outros_admins = conn.execute(
-                'SELECT COUNT(*) as total FROM usuarios WHERE casa_id = ? AND perfil = ? AND ativo = 1 AND id != ?',
+                'SELECT COUNT(*) as total FROM usuarios WHERE casa_id = ? AND perfil = ? AND ativo = 1 '
+                'AND excluido_em IS NULL AND id != ?',
                 (casa_id_atual(), 'admin', usuario_id)
             ).fetchone()['total']
             if outros_admins == 0:
                 flash('Não é possível excluir o único administrador da casa.', 'erro')
                 return redirect(url_for('listar_usuarios'))
-        conn.execute('DELETE FROM usuarios WHERE id = ? AND casa_id = ?', (usuario_id, casa_id_atual()))
-        flash(f'Usuário {usuario["nome"]} excluído permanentemente.', 'sucesso')
+        conn.execute(
+            "UPDATE usuarios SET ativo = 0, excluido_em = datetime('now'), excluido_por = ? "
+            'WHERE id = ? AND casa_id = ?',
+            (session.get('usuario_id'), usuario_id, casa_id_atual())
+        )
+        # Para de mandar notificações para o aparelho de quem foi excluído.
+        conn.execute('DELETE FROM push_subscriptions WHERE usuario_id = ?', (usuario_id,))
+        log.info('usuario_excluido', extra={'gc_action': 'excluir_usuario', 'gc_user_id': session.get('usuario_id'),
+                 'gc_alvo_id': usuario_id, 'gc_casa_id': casa_id_atual()})
+        flash(f'Usuário {usuario["nome"]} excluído. Se foi engano, restaure na aba "Excluídos".', 'sucesso')
     return redirect(url_for('listar_usuarios'))
+
+
+@app.route('/usuarios/<int:usuario_id>/restaurar', methods=['POST'])
+@login_obrigatorio
+@apenas_admin
+def restaurar_usuario(usuario_id):
+    """Traz de volta um usuário excluído, com os mesmos dados e senha. Não cria
+    sessão para ele: a pessoa precisa entrar de novo com e-mail e senha."""
+    with get_db() as conn:
+        usuario = _buscar_usuario_da_casa(conn, usuario_id, excluido=True)
+        if not usuario:
+            flash('Usuário não encontrado na lista de excluídos.', 'erro')
+            return redirect(url_for('listar_usuarios', ver='excluidos'))
+        conn.execute(
+            "UPDATE usuarios SET ativo = 1, excluido_em = NULL, excluido_por = NULL, "
+            "atualizado_em = datetime('now') WHERE id = ? AND casa_id = ?",
+            (usuario_id, casa_id_atual())
+        )
+        log.info('usuario_restaurado', extra={'gc_action': 'restaurar_usuario', 'gc_user_id': session.get('usuario_id'),
+                 'gc_alvo_id': usuario_id, 'gc_casa_id': casa_id_atual()})
+        flash(f'Usuário {usuario["nome"]} restaurado e ativo de novo. Ele entra com o mesmo e-mail e senha.', 'sucesso')
+    return redirect(url_for('listar_usuarios'))
+
+
+@app.route('/usuarios/<int:usuario_id>/apagar', methods=['POST'])
+@login_obrigatorio
+@apenas_admin
+def apagar_usuario_definitivo(usuario_id):
+    """Apaga de vez um usuário que já está em "Excluídos" (ex.: pedido de
+    eliminação de dados pela LGPD). Não tem volta."""
+    with get_db() as conn:
+        usuario = _buscar_usuario_da_casa(conn, usuario_id, excluido=True)
+        if not usuario:
+            flash('Só é possível apagar de vez um usuário que já está em "Excluídos".', 'erro')
+            return redirect(url_for('listar_usuarios', ver='excluidos'))
+        conn.execute('DELETE FROM usuarios WHERE id = ? AND casa_id = ?', (usuario_id, casa_id_atual()))
+        log.warning('usuario_apagado_definitivo', extra={'gc_action': 'apagar_usuario',
+                    'gc_user_id': session.get('usuario_id'), 'gc_alvo_id': usuario_id,
+                    'gc_casa_id': casa_id_atual()})
+        flash(f'Usuário {usuario["nome"]} apagado definitivamente.', 'sucesso')
+    return redirect(url_for('listar_usuarios', ver='excluidos'))
 
 
 # ============================================================================

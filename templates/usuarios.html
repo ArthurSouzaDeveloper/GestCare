@@ -2,18 +2,40 @@
 {% block titulo %}Usuários{% endblock %}
 
 {% block conteudo %}
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;gap:1rem;flex-wrap:wrap">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;gap:1rem;flex-wrap:wrap">
   <div>
     <h1 class="titulo-pagina">Usuários</h1>
-    <p class="subtitulo" style="margin-bottom:0">{{ usuarios|length }} usuário{{ 's' if usuarios|length != 1 else '' }}</p>
+    <p class="subtitulo" style="margin-bottom:0">
+      {% if ver_excluidos %}
+        {{ usuarios|length }} excluído{{ 's' if usuarios|length != 1 else '' }}
+      {% else %}
+        {{ usuarios|length }} usuário{{ 's' if usuarios|length != 1 else '' }}
+      {% endif %}
+    </p>
   </div>
   <a href="{{ url_for('novo_usuario') }}" class="botao botao-primario">+ Convidar usuário</a>
 </div>
 
+<nav class="abas-usuarios" aria-label="Filtrar usuários">
+  <a href="{{ url_for('listar_usuarios') }}" class="aba-usuarios {{ '' if ver_excluidos else 'ativa' }}"
+     {% if not ver_excluidos %}aria-current="page"{% endif %}>Ativos e inativos</a>
+  <a href="{{ url_for('listar_usuarios', ver='excluidos') }}" class="aba-usuarios {{ 'ativa' if ver_excluidos else '' }}"
+     {% if ver_excluidos %}aria-current="page"{% endif %}>
+    <svg class="ti" aria-hidden="true"><use href="#ti-trash"/></svg> Excluídos{% if total_excluidos %} <span class="aba-contador">{{ total_excluidos }}</span>{% endif %}
+  </a>
+</nav>
+
+{% if ver_excluidos %}
+<p class="aviso-excluidos">
+  Quem está aqui não tem acesso ao sistema. <strong>Restaurar</strong> devolve a conta com os mesmos dados e senha.
+  <strong>Apagar de vez</strong> remove os dados para sempre (use em pedido de eliminação de dados).
+</p>
+{% endif %}
+
 <div class="secao" style="padding:0">
   <div class="lista-usuarios">
     {% for u in usuarios %}
-    <div class="usuario-linha">
+    <div class="usuario-linha {{ 'usuario-excluido' if ver_excluidos }}">
       <div class="avatar-usuario">{{ u.nome[0]|upper }}</div>
 
       <div class="usuario-dados">
@@ -22,6 +44,9 @@
           {% if u.id == session.get('usuario_id') %}<span class="tag-voce">Você</span>{% endif %}
         </div>
         <div class="usuario-email">{{ u.email }}{% if u.paciente_nome %} · {{ u.paciente_nome }}{% endif %}</div>
+        {% if ver_excluidos %}
+        <div class="usuario-email">Excluído em {{ u.excluido_em_fmt }}{% if u.excluido_por_nome %} por {{ u.excluido_por_nome }}{% endif %}</div>
+        {% endif %}
       </div>
 
       <div class="usuario-meta">
@@ -32,7 +57,9 @@
         {% else %}
           <span class="badge-perfil badge-perfil-enfermeiro">Enfermeiro(a)</span>
         {% endif %}
-        {% if u.ativo %}
+        {% if ver_excluidos %}
+          <span class="status-linha" style="color:var(--cor-erro)"><span class="status-ponto inativo"></span> Excluído</span>
+        {% elif u.ativo %}
           <span class="status-linha" style="color:var(--cor-sucesso)"><span class="status-ponto ativo"></span> Ativo</span>
         {% else %}
           <span class="status-linha" style="color:var(--cor-texto-terciario)"><span class="status-ponto inativo"></span> Inativo</span>
@@ -40,25 +67,52 @@
       </div>
 
       <div class="usuario-acoes">
-        {% if u.id != session.get('usuario_id') %}
-        <form method="POST" action="{{ url_for('toggle_usuario', usuario_id=u.id) }}"
-              onsubmit="return confirm('{{ 'Desativar' if u.ativo else 'Ativar' }} {{ u.nome }}?')">
-          <button type="submit" class="btn-icone {{ 'btn-icone-perigo' if u.ativo else 'btn-icone-ok' }}"
-                  title="{{ 'Desativar' if u.ativo else 'Ativar' }} {{ u.nome }}"
-                  aria-label="{{ 'Desativar' if u.ativo else 'Ativar' }} {{ u.nome }}">
-            <svg class="ti" aria-hidden="true"><use href="#ti-{{ 'user-off' if u.ativo else 'user-check' }}"/></svg>
-          </button>
-        </form>
-        <form method="POST" action="{{ url_for('excluir_usuario', usuario_id=u.id) }}"
-              onsubmit="return confirm('Excluir permanentemente {{ u.nome }}? Esta ação não pode ser desfeita.')">
-          <button type="submit" class="btn-icone btn-icone-perigo"
-                  title="Excluir {{ u.nome }}" aria-label="Excluir {{ u.nome }}">
-            <svg class="ti" aria-hidden="true"><use href="#ti-trash"/></svg>
-          </button>
-        </form>
+        {% if ver_excluidos %}
+          <form method="POST" action="{{ url_for('restaurar_usuario', usuario_id=u.id) }}"
+                onsubmit="return confirm('Restaurar {{ u.nome }}? A conta volta ativa, com o mesmo e-mail e senha.')">
+            <button type="submit" class="botao botao-primario botao-acao-principal" aria-label="Restaurar {{ u.nome }}">
+              <svg class="ti" aria-hidden="true"><use href="#ti-restore"/></svg> Restaurar
+            </button>
+          </form>
+          <form method="POST" action="{{ url_for('apagar_usuario_definitivo', usuario_id=u.id) }}"
+                onsubmit="return confirm('Apagar {{ u.nome }} DE VEZ? Os dados serão removidos e isto não pode ser desfeito.')">
+            <button type="submit" class="btn-icone btn-icone-perigo"
+                    title="Apagar {{ u.nome }} de vez" aria-label="Apagar {{ u.nome }} de vez">
+              <svg class="ti" aria-hidden="true"><use href="#ti-trash-x"/></svg>
+            </button>
+          </form>
+        {% elif u.id == session.get('usuario_id') %}
+          <a href="{{ url_for('meu_perfil') }}" class="botao botao-primario botao-acao-principal"
+             aria-label="Editar meus dados">
+            <svg class="ti" aria-hidden="true"><use href="#ti-edit"/></svg> Editar
+          </a>
+        {% else %}
+          <a href="{{ url_for('editar_usuario', usuario_id=u.id) }}" class="botao botao-primario botao-acao-principal"
+             aria-label="Editar {{ u.nome }}">
+            <svg class="ti" aria-hidden="true"><use href="#ti-edit"/></svg> Editar
+          </a>
+          <form method="POST" action="{{ url_for('toggle_usuario', usuario_id=u.id) }}"
+                onsubmit="return confirm('{{ 'Desativar' if u.ativo else 'Ativar' }} {{ u.nome }}?')">
+            <button type="submit" class="btn-icone {{ 'btn-icone-perigo' if u.ativo else 'btn-icone-ok' }}"
+                    title="{{ 'Desativar' if u.ativo else 'Ativar' }} {{ u.nome }}"
+                    aria-label="{{ 'Desativar' if u.ativo else 'Ativar' }} {{ u.nome }}">
+              <svg class="ti" aria-hidden="true"><use href="#ti-{{ 'user-off' if u.ativo else 'user-check' }}"/></svg>
+            </button>
+          </form>
+          <form method="POST" action="{{ url_for('excluir_usuario', usuario_id=u.id) }}"
+                onsubmit="return confirm('Excluir {{ u.nome }}? A pessoa perde o acesso na hora. Dá para restaurar depois na aba Excluídos.')">
+            <button type="submit" class="btn-icone btn-icone-perigo"
+                    title="Excluir {{ u.nome }}" aria-label="Excluir {{ u.nome }}">
+              <svg class="ti" aria-hidden="true"><use href="#ti-trash"/></svg>
+            </button>
+          </form>
         {% endif %}
       </div>
     </div>
+    {% else %}
+    <p style="padding:1.25rem;color:var(--cor-texto-suave);margin:0">
+      {{ 'Nenhum usuário excluído.' if ver_excluidos else 'Nenhum usuário cadastrado.' }}
+    </p>
     {% endfor %}
   </div>
 </div>

@@ -1,11 +1,14 @@
 {% extends "base.html" %}
-{% block titulo %}Novo Usuário{% endblock %}
+{% set editando = usuario is not none %}
+{# Valores do formulário: o que foi enviado (quando houve erro), senão o usuário salvo. #}
+{% set v = form if form else (usuario if usuario else {}) %}
+{% block titulo %}{{ 'Editar usuário' if editando else 'Novo Usuário' }}{% endblock %}
 
 {% block conteudo %}
-<div class="fileira-entre esp-y-6">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem">
   <div>
-    <h1 class="titulo-pagina">Novo Usuário</h1>
-    <p class="subtitulo">Cadastre um novo acesso ao sistema</p>
+    <h1 class="titulo-pagina">{{ 'Editar usuário' if editando else 'Novo Usuário' }}</h1>
+    <p class="subtitulo">{{ 'Altere os dados de acesso de ' ~ usuario.nome if editando else 'Cadastre um novo acesso ao sistema' }}</p>
   </div>
   <a href="{{ url_for('listar_usuarios') }}" class="botao botao-secundario">← Voltar</a>
 </div>
@@ -15,51 +18,74 @@
     <div class="form-grupo">
       <label class="form-label" for="nome">Nome completo <span class="form-obrigatorio">*</span></label>
       <input type="text" id="nome" name="nome" class="form-input" required
-             placeholder="Nome do usuário">
+             placeholder="Nome do usuário" value="{{ v.nome or '' }}">
     </div>
 
     <div class="form-grupo">
       <label class="form-label" for="email">E-mail <span class="form-obrigatorio">*</span></label>
       <input type="email" id="email" name="email" class="form-input" required
-             placeholder="usuario@email.com">
-    </div>
-
-    <div class="form-grupo">
-      <label class="form-label" for="senha">Senha <span class="form-obrigatorio">*</span></label>
-      <input type="password" id="senha" name="senha" class="form-input" required
-             placeholder="Mínimo 6 caracteres" minlength="6">
+             placeholder="usuario@email.com" value="{{ v.email or '' }}">
     </div>
 
     <div class="form-grupo">
       <label class="form-label" for="perfil">Perfil <span class="form-obrigatorio">*</span></label>
       <select id="perfil" name="perfil" class="form-input" onchange="togglePaciente(this.value)">
-        <option value="enfermeiro">Enfermeiro / Técnico</option>
-        <option value="admin">Administrador</option>
-        <option value="responsavel">Responsável pelo idoso</option>
+        <option value="enfermeiro" {{ 'selected' if v.perfil == 'enfermeiro' }}>Enfermeiro / Técnico</option>
+        <option value="admin" {{ 'selected' if v.perfil == 'admin' }}>Administrador</option>
+        <option value="responsavel" {{ 'selected' if v.perfil == 'responsavel' }}>Responsável pelo idoso</option>
       </select>
-    </div>
-
-    <div class="form-grupo" id="campo-paciente" hidden>
-      <label class="form-label" for="paciente_id">Paciente vinculado (opcional)</label>
-      <select id="paciente_id" name="paciente_id" class="form-input">
-        <option value="">— Selecione o paciente —</option>
-        {% for p in pacientes %}
-        <option value="{{ p.id }}">
-          {{ p.nome }}
-          {% if p.cpf %} — CPF: {{ p.cpf|mascarar_cpf }}{% endif %}
-          {% if p.rg %} — RG: {{ p.rg }}{% endif %}
-        </option>
-        {% endfor %}
-      </select>
+      {% if editando %}
       <small style="color:var(--cor-texto-suave);display:block;margin-top:4px">
-        Normalmente não é preciso vincular aqui: o próprio responsável cria a conta em
-        "Cadastre-se" na tela de login e depois informa o CPF/RG do idoso para se vincular.
-        Use este campo apenas se quiser vincular manualmente.
+        Se mudar o perfil, a sessão aberta dessa pessoa é encerrada e ela entra de novo já com o novo perfil.
       </small>
+      {% endif %}
     </div>
 
-    <div class="form-botoes esp-y-6">
-      <button type="submit" class="botao botao-primario">Criar usuário</button>
+    <div id="campo-paciente" {% if v.perfil != 'responsavel' %}style="display:none"{% endif %}>
+      <div class="form-grupo">
+        <label class="form-label" for="paciente_id">Paciente vinculado (opcional)</label>
+        <select id="paciente_id" name="paciente_id" class="form-input">
+          <option value="">— Nenhum paciente —</option>
+          {% for p in pacientes %}
+          <option value="{{ p.id }}" {{ 'selected' if v.paciente_id and v.paciente_id|string == p.id|string }}>
+            {{ p.nome }}
+            {% if p.cpf %} — CPF: {{ p.cpf|mascarar_cpf }}{% endif %}
+            {% if p.rg %} — RG: {{ p.rg }}{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+        <small style="color:var(--cor-texto-suave);display:block;margin-top:4px">
+          Normalmente não é preciso vincular aqui: o próprio responsável cria a conta em
+          "Cadastre-se" na tela de login e depois informa o CPF/RG do idoso para se vincular.
+        </small>
+      </div>
+
+      <div class="form-grupo">
+        <label class="form-label" for="cpf">CPF do responsável (opcional)</label>
+        <input type="text" id="cpf" name="cpf" class="form-input" inputmode="numeric"
+               placeholder="000.000.000-00" value="{{ v.cpf or '' }}" data-formato="cpf">
+      </div>
+    </div>
+
+    <fieldset class="form-grupo" style="border:1.5px solid var(--cor-borda);border-radius:var(--raio-xs);padding:.9rem 1rem;margin-top:.5rem">
+      <legend class="form-label" style="padding:0 .35rem">
+        {% if editando %}Trocar senha (opcional){% else %}Senha <span class="form-obrigatorio">*</span>{% endif %}
+      </legend>
+      {% if editando %}
+      <p style="color:var(--cor-texto-suave);font-size:.85rem;margin:0 0 .6rem">
+        Deixe em branco para manter a senha atual. Avise a pessoa da nova senha por um canal seguro.
+      </p>
+      {% endif %}
+      <label class="form-label" for="senha">{{ 'Nova senha' if editando else 'Senha' }}</label>
+      <input type="password" id="senha" name="senha" class="form-input" autocomplete="new-password"
+             placeholder="Mínimo 6 caracteres" minlength="6" {{ '' if editando else 'required' }}>
+      <label class="form-label" for="confirmar_senha" style="margin-top:.6rem">Confirmar {{ 'nova senha' if editando else 'senha' }}</label>
+      <input type="password" id="confirmar_senha" name="confirmar_senha" class="form-input"
+             autocomplete="new-password" minlength="6" {{ '' if editando else 'required' }}>
+    </fieldset>
+
+    <div class="form-botoes" style="margin-top:1.5rem">
+      <button type="submit" class="botao botao-primario">{{ 'Salvar alterações' if editando else 'Criar usuário' }}</button>
       <a href="{{ url_for('listar_usuarios') }}" class="botao botao-secundario">Cancelar</a>
     </div>
   </form>
@@ -67,12 +93,7 @@
 
 <script>
 function togglePaciente(perfil) {
-  const campo = document.getElementById('campo-paciente');
-  if (perfil === 'responsavel') {
-    campo.style.display = '';
-  } else {
-    campo.style.display = 'none';
-  }
+  document.getElementById('campo-paciente').style.display = perfil === 'responsavel' ? '' : 'none';
 }
 </script>
 {% endblock %}
