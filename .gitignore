@@ -6,3 +6,4 @@ vapid_private_key.pem
 .venv/
 venv/
 uploads/
+.pytest_cache/
