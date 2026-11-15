@@ -13,22 +13,22 @@
   <a href="{{ url_for('listar_usuarios') }}" class="botao botao-secundario">← Voltar</a>
 </div>
 
-<div class="secao" style="max-width:560px">
+<div class="secao secao-estreita">
   <form method="POST">
     <div class="form-grupo">
-      <label class="form-label" for="nome">Nome completo <span style="color:red">*</span></label>
+      <label class="form-label" for="nome">Nome completo <span class="form-obrigatorio">*</span></label>
       <input type="text" id="nome" name="nome" class="form-input" required
              placeholder="Nome do usuário" value="{{ v.nome or '' }}">
     </div>
 
     <div class="form-grupo">
-      <label class="form-label" for="email">E-mail <span style="color:red">*</span></label>
+      <label class="form-label" for="email">E-mail <span class="form-obrigatorio">*</span></label>
       <input type="email" id="email" name="email" class="form-input" required
              placeholder="usuario@email.com" value="{{ v.email or '' }}">
     </div>
 
     <div class="form-grupo">
-      <label class="form-label" for="perfil">Perfil <span style="color:red">*</span></label>
+      <label class="form-label" for="perfil">Perfil <span class="form-obrigatorio">*</span></label>
       <select id="perfil" name="perfil" class="form-input" onchange="togglePaciente(this.value)">
         <option value="enfermeiro" {{ 'selected' if v.perfil == 'enfermeiro' }}>Enfermeiro / Técnico</option>
         <option value="admin" {{ 'selected' if v.perfil == 'admin' }}>Administrador</option>
@@ -69,7 +69,7 @@
 
     <fieldset class="form-grupo" style="border:1.5px solid var(--cor-borda);border-radius:var(--raio-xs);padding:.9rem 1rem;margin-top:.5rem">
       <legend class="form-label" style="padding:0 .35rem">
-        {% if editando %}Trocar senha (opcional){% else %}Senha <span style="color:red">*</span>{% endif %}
+        {% if editando %}Trocar senha (opcional){% else %}Senha <span class="form-obrigatorio">*</span>{% endif %}
       </legend>
       {% if editando %}
       <p style="color:var(--cor-texto-suave);font-size:.85rem;margin:0 0 .6rem">

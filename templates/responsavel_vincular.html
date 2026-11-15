@@ -12,9 +12,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v={{ versao_assets }}">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
 </head>
 <body style="display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem">
+{% include 'partials/_icones.html' %}
 
 <div style="width:100%;max-width:420px">
   {% with mensagens = get_flashed_messages(with_categories=true) %}
@@ -26,10 +26,10 @@
   {% endwith %}
 
   <div class="formulario">
-    <div style="text-align:center;margin-bottom:1.5rem">
-      <div style="font-size:3rem"><i class="ti ti-wheelchair" aria-hidden="true"></i></div>
+    <div class="txt-centro esp-y-6">
+      <div style="font-size:3rem"><svg class="ti" aria-hidden="true"><use href="#ti-wheelchair"/></svg></div>
       <h1 style="font-family:var(--fonte-titulo);font-size:1.6rem;color:var(--cor-primaria-escura);margin-bottom:.25rem">Acessar Ficha do Idoso</h1>
-      <p style="color:var(--cor-texto-suave);font-size:.9rem">
+      <p class="txt-apoio">
         Olá, {{ session.get('usuario_nome') }}! Informe o CPF ou RG do idoso que você acompanha.
       </p>
     </div>
@@ -41,13 +41,13 @@
         <input type="text" id="cpf_rg" name="cpf_rg" class="form-input" required autofocus
                placeholder="Digite o CPF ou RG do idoso">
       </div>
-      <div class="form-botoes" style="margin-top:1.25rem">
-        <button type="submit" class="botao botao-primario" style="width:100%">Acessar ficha</button>
+      <div class="form-botoes esp-y-5">
+        <button type="submit" class="botao botao-primario botao-bloco">Acessar ficha</button>
       </div>
     </form>
 
     <p style="text-align:center;margin-top:1.25rem;font-size:.9rem">
-      <a href="{{ url_for('logout') }}" style="color:var(--cor-texto-suave)">Sair</a>
+      <a href="{{ url_for('logout') }}" class="txt-apoio">Sair</a>
     </p>
   </div>
 </div>
