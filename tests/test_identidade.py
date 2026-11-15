@@ -341,6 +341,61 @@ def test_excluir_responsavel_apaga_fotos_dele(cliente):
     assert linhas('SELECT revogado_em FROM consentimentos_biometria')[0]['revogado_em']
 
 
+def test_responsavel_bloqueado_ate_aprovacao(cliente):
+    # exame com arquivo do idoso 1
+    os.makedirs(gc.UPLOAD_FOLDER, exist_ok=True)
+    with open(os.path.join(gc.UPLOAD_FOLDER, 'exame.pdf'), 'wb') as f:
+        f.write(b'%PDF-1.4 teste')
+    con = sqlite3.connect(gc.DB_PATH)
+    con.execute("INSERT INTO exames (paciente_id, tipo_exame, data_exame, arquivo_nome) "
+                "VALUES (1, 'Hemograma', '2026-01-01', 'exame.pdf')")
+    con.commit()
+    con.close()
+
+    # sem nenhum envio: ficha e PDF bloqueados, vai para a tela de verificação
+    entrar(cliente, 3)
+    r = cliente.get('/meu-paciente')
+    assert r.status_code == 302 and '/responsavel/verificacao' in r.headers['Location']
+    assert cliente.get('/exame/arquivo/exame.pdf').status_code == 403
+    assert 'bloqueado' in cliente.get('/responsavel/verificacao').get_data(as_text=True)
+
+    # enviou, mas está pendente: continua bloqueado
+    cliente.post('/responsavel/verificacao', data=fotos(aceite_termo='sim'),
+                 content_type='multipart/form-data')
+    assert cliente.get('/meu-paciente').status_code == 302
+    assert cliente.get('/exame/arquivo/exame.pdf').status_code == 403
+    assert 'sendo analisado' in cliente.get('/responsavel/verificacao').get_data(as_text=True)
+
+    # admin aprova: libera
+    entrar(cliente, 1)
+    cliente.post('/repositorio/1/decidir', data={'decisao': 'aprovado', 'csrf_token': 'tok',
+                                                 'motivo': 'conferi o documento original'})
+    entrar(cliente, 3)
+    assert cliente.get('/meu-paciente').status_code == 200
+    assert cliente.get('/exame/arquivo/exame.pdf').status_code == 200
+    assert 'liberado' in cliente.get('/responsavel/verificacao').get_data(as_text=True)
+
+    # novo envio pendente não tira o acesso de quem já foi aprovado
+    cliente.post('/responsavel/verificacao', data=fotos(aceite_termo='sim'),
+                 content_type='multipart/form-data')
+    assert cliente.get('/meu-paciente').status_code == 200
+
+    # admin recusa o envio mais recente: bloqueia de novo
+    entrar(cliente, 1)
+    cliente.post('/repositorio/2/decidir', data={'decisao': 'recusado', 'csrf_token': 'tok',
+                                                 'motivo': 'foto de outra pessoa'})
+    entrar(cliente, 3)
+    assert cliente.get('/meu-paciente').status_code == 302
+    assert cliente.get('/exame/arquivo/exame.pdf').status_code == 403
+    html = cliente.get('/responsavel/verificacao').get_data(as_text=True)
+    assert 'foto de outra pessoa' in html  # motivo da recusa visível
+
+
+def test_bloqueio_nao_afeta_equipe(cliente):
+    entrar(cliente, 2)
+    assert cliente.get('/paciente/1').status_code == 200
+
+
 # ── Motor real (opcional) ───────────────────────────────────────────────────
 
 def _motores_reais():

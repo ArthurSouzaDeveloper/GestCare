@@ -1284,6 +1284,11 @@ def painel_responsavel():
         return redirect(url_for('vincular_idoso'))
 
     with get_db() as conn:
+        # Só vê a ficha quem teve a identidade aprovada pela casa (Repositório).
+        if not responsavel_verificado(conn, session['usuario_id']):
+            flash('Seu acesso à ficha será liberado depois que a casa aprovar sua identidade. '
+                  'Envie seus documentos abaixo.', 'erro')
+            return redirect(url_for('verificacao_responsavel'))
         paciente = buscar_paciente_da_casa(conn, paciente_id)
         if not paciente:
             flash('Paciente não encontrado.', 'erro')
@@ -2448,7 +2453,7 @@ def servir_exame(nome_arquivo):
             exame = conn.execute(
                 'SELECT e.id FROM exames e WHERE e.arquivo_nome = ? AND e.paciente_id = ?',
                 (nome_arquivo, paciente_id)
-            ).fetchone()
+            ).fetchone() if responsavel_verificado(conn, session.get('usuario_id')) else None
         else:
             # Equipe e superadmin: restringe à casa
             exame = conn.execute('''
@@ -2614,6 +2619,17 @@ def _receber_envio(conn, tipo_pessoa, pessoa, consentido_por_nome, relacao, pres
         _apagar_arquivos_identidade(foto_documento, foto_rosto)
         raise
     return verificacao_id, None
+
+
+def responsavel_verificado(conn, usuario_id):
+    """True se a decisão mais recente da casa sobre este responsável foi 'aprovado'.
+    Envio novo pendente não tira o acesso de quem já foi aprovado; uma recusa tira."""
+    ultima = conn.execute(
+        "SELECT status FROM verificacoes_identidade WHERE casa_id = ? AND "
+        "tipo_pessoa = 'responsavel' AND pessoa_id = ? AND status != 'pendente' "
+        "ORDER BY revisado_em DESC, id DESC LIMIT 1",
+        (casa_id_atual(), usuario_id)).fetchone()
+    return bool(ultima and ultima['status'] == 'aprovado')
 
 
 def _verificacoes_da_pessoa(conn, tipo_pessoa, pessoa_id):
@@ -2858,7 +2874,9 @@ def verificacao_responsavel():
                 flash('Fotos enviadas. A casa vai conferir e avisar o resultado aqui.', 'sucesso')
             return redirect(url_for('verificacao_responsavel'))
         verificacoes = _verificacoes_da_pessoa(conn, 'responsavel', pessoa['id'])
-    return render_template('responsavel_verificacao.html', verificacoes=verificacoes)
+        liberado = responsavel_verificado(conn, pessoa['id'])
+    return render_template('responsavel_verificacao.html', verificacoes=verificacoes,
+                           liberado=liberado)
 
 
 # ============================================================================
