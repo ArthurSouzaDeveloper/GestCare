@@ -2,12 +2,12 @@
 {% block titulo %}Agenda Diária{% endblock %}
 
 {% block conteudo %}
-<h1 class="titulo-pagina"><i class="ti ti-calendar" aria-hidden="true"></i> Agenda do Dia</h1>
+<h1 class="titulo-pagina"><svg class="ti" aria-hidden="true"><use href="#ti-calendar"/></svg> Agenda do Dia</h1>
 <p class="subtitulo">Medicamentos organizados por horário.</p>
 
 <div class="barra-acoes">
   <a href="{{ url_for('index') }}" class="botao botao-secundario">← Pacientes</a>
-  <button onclick="window.print()" class="botao botao-secundario"><i class="ti ti-printer" aria-hidden="true"></i> Imprimir</button>
+  <button onclick="window.print()" class="botao botao-secundario"><svg class="ti" aria-hidden="true"><use href="#ti-printer"/></svg> Imprimir</button>
 </div>
 
 {% if agenda %}
@@ -32,13 +32,13 @@
 
 <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap">
   <p class="filtro-resumo" id="filtro-resumo"></p>
-  <button type="button" class="filtro-limpar" id="filtro-limpar" style="display:none">
-    <i class="ti ti-x" aria-hidden="true"></i> Limpar filtros
+  <button type="button" class="filtro-limpar" id="filtro-limpar" hidden>
+    <svg class="ti" aria-hidden="true"><use href="#ti-x"/></svg> Limpar filtros
   </button>
 </div>
 
-<div id="agenda-vazio" style="display:none" class="vazio">
-  <span class="vazio-icone"><i class="ti ti-filter-off" aria-hidden="true"></i></span>
+<div id="agenda-vazio" hidden class="vazio">
+  <span class="vazio-icone"><svg class="ti" aria-hidden="true"><use href="#ti-filter-off"/></svg></span>
   <h2 class="vazio-titulo">Nenhuma medicação neste filtro</h2>
   <p class="vazio-texto">Tente outro quarto ou turno.</p>
 </div>
@@ -47,7 +47,7 @@
 {% if agenda %}
   {% for horario, itens in agenda.items() %}
   <div class="agenda-horario" data-horario="{{ horario[:2] }}">
-    <div class="agenda-horario-titulo"><i class="ti ti-clock" aria-hidden="true"></i> {{ horario[:5] }}</div>
+    <div class="agenda-horario-titulo"><svg class="ti" aria-hidden="true"><use href="#ti-clock"/></svg> {{ horario[:5] }}</div>
     <div class="agenda-lista">
       {% for item in itens %}
       <div class="agenda-item" data-quarto="{{ (item.quarto or '')|lower }}">
@@ -68,15 +68,15 @@
         </div>
         {% if item.instrucoes %}
         <div style="font-size:.85rem;color:var(--cor-texto-suave);font-style:italic">
-          <i class="ti ti-info-circle" aria-hidden="true"></i> {{ item.instrucoes }}
+          <svg class="ti" aria-hidden="true"><use href="#ti-info-circle"/></svg> {{ item.instrucoes }}
         </div>
         {% endif %}
         <div class="agenda-acoes">
           <form method="POST"
                 action="{{ url_for('administrar_dose', medicamento_id=item.medicamento_id) }}">
             <input type="hidden" name="horario_previsto" value="{{ horario }}">
-            <button type="submit" class="botao botao-primario botao-pequeno"
-                    style="width:100%"><i class="ti ti-check" aria-hidden="true"></i> Administrado</button>
+            <button type="submit" class="botao botao-primario botao-pequeno botao-bloco"
+                   ><svg class="ti" aria-hidden="true"><use href="#ti-check"/></svg> Administrado</button>
           </form>
           <a href="{{ url_for('detalhe_paciente', paciente_id=item.paciente_id) }}"
              class="botao botao-secundario botao-pequeno"
@@ -89,7 +89,7 @@
   {% endfor %}
 {% else %}
   <div class="vazio">
-    <span class="vazio-icone"><i class="ti ti-calendar-off" aria-hidden="true"></i></span>
+    <span class="vazio-icone"><svg class="ti" aria-hidden="true"><use href="#ti-calendar-off"/></svg></span>
     <h2 class="vazio-titulo">Nenhuma medicação agendada</h2>
     <p class="vazio-texto">Cadastre pacientes e medicamentos para ver a agenda.</p>
     <a href="{{ url_for('index') }}" class="botao botao-primario">Ver Pacientes</a>
