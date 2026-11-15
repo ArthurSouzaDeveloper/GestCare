@@ -106,6 +106,16 @@ def test_sem_motores_vai_para_revisao_manual(png):
     assert not vid.precisa_atencao(r)  # nada divergiu; o admin decide olhando as fotos
 
 
+def test_ocr_instalado_mas_quebrado_aparece_como_indisponivel(monkeypatch):
+    """Ex.: pacote presente mas o opencv falha por falta de libGL no sistema.
+    O aviso da tela tem de refletir isso, e a análise segue para revisão manual."""
+    import sys
+    monkeypatch.setitem(sys.modules, 'rapidocr_onnxruntime', None)  # import levanta ImportError
+    motor = vid.MotorRapidOCR()
+    assert motor.disponivel() is False
+    assert vid.ler_cpf_documento('qualquer.jpg', motor)['status'] == 'indisponivel'
+
+
 # ── Rotas ───────────────────────────────────────────────────────────────────
 
 @pytest.fixture
