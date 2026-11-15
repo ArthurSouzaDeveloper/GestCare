@@ -1653,3 +1653,45 @@ button, input, select, textarea { font-family: inherit; }
   font-size: var(--txt-sm);
   margin-top: var(--esp-3);
 }
+
+/* ── IDENTIDADE (repositório, foto na ficha) ───────────── */
+.paciente-foto { position: relative; margin: 0; width: 96px; height: 120px; flex-shrink: 0; border-radius: var(--raio-sm); overflow: hidden; border: 1px solid var(--cor-borda); background: var(--cor-fundo); }
+.paciente-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.paciente-foto-selo { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(160,109,22,.92); color: #fff; font-size: .62rem; font-weight: 700; text-align: center; padding: 2px 4px; }
+.paciente-avatar-grande { width: 96px; height: 120px; font-size: 2.2rem; }
+
+.ident-aviso { display: flex; gap: .7rem; align-items: flex-start; background: var(--cor-alerta-bg); border-radius: var(--raio-xs); padding: .75rem .9rem; font-size: .86rem; margin-bottom: 1rem; line-height: 1.45; }
+.ident-aviso > svg { width: 1.3em; height: 1.3em; flex-shrink: 0; color: var(--cor-alerta); margin-top: 1px; }
+.ident-grupo-titulo { font-size: .72rem; font-weight: 700; color: var(--cor-texto-suave); text-transform: uppercase; letter-spacing: .04em; margin: .9rem 0 .4rem; }
+.ident-grupo-titulo:first-of-type { margin-top: 0; }
+.ident-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+.ident-item { display: flex; align-items: center; gap: .7rem; padding: .6rem; background: var(--cor-fundo); border: 1px solid var(--cor-borda); border-radius: var(--raio-sm); }
+.ident-item-card { background: var(--cor-card); }
+.ident-mini { width: 52px; height: 52px; object-fit: cover; border-radius: var(--raio-xs); border: 1px solid var(--cor-borda); flex-shrink: 0; background: var(--cor-canvas); }
+.ident-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .2rem; }
+.ident-meta { font-size: .8rem; color: var(--cor-texto-suave); font-weight: 500; }
+.ident-sinais { display: flex; flex-wrap: wrap; gap: .3rem; }
+.ident-sinal { font-size: .72rem; font-weight: 600; padding: 2px 8px; border-radius: 20px; background: var(--cor-canvas); color: var(--cor-texto-suave); }
+.ident-sinal-ok { background: var(--cor-sucesso-bg); color: var(--cor-sucesso); }
+.ident-sinal-alerta { background: var(--cor-erro-bg); color: var(--cor-erro); }
+.ident-status { align-self: flex-start; font-size: .72rem; font-weight: 700; padding: 2px 9px; border-radius: 20px; }
+.ident-status-pendente { background: var(--cor-alerta-bg); color: var(--cor-alerta); }
+.ident-status-aprovado { background: var(--cor-sucesso-bg); color: var(--cor-sucesso); }
+.ident-status-recusado { background: var(--cor-erro-bg); color: var(--cor-erro); }
+.ident-status-sem { background: var(--cor-canvas); color: var(--cor-texto-suave); }
+.ident-vazio { font-size: .88rem; color: var(--cor-texto-suave); margin: 0; }
+.ident-fotos { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-bottom: 1rem; }
+.ident-fotos figure { margin: 0; background: var(--cor-card); border: 1px solid var(--cor-borda); border-radius: var(--raio); padding: .5rem; }
+.ident-fotos img { width: 100%; max-height: 420px; object-fit: contain; display: block; border-radius: var(--raio-xs); background: var(--cor-canvas); }
+.ident-fotos figcaption { font-size: .8rem; font-weight: 600; color: var(--cor-texto-suave); text-align: center; margin-top: .4rem; }
+.ident-check { display: flex; gap: .55rem; align-items: flex-start; font-size: .88rem; margin: .4rem 0 .9rem; cursor: pointer; }
+.ident-check input { margin-top: 3px; width: 18px; height: 18px; flex-shrink: 0; }
+.ident-termo { border: 1px solid var(--cor-borda); border-radius: var(--raio-sm); padding: .8rem .9rem; margin: 0 0 1rem; font-size: .88rem; }
+.ident-termo legend { font-weight: 700; padding: 0 .3rem; }
+.ident-acessos { list-style: none; margin: 0; padding: 0; font-size: .82rem; display: flex; flex-direction: column; gap: .25rem; }
+.ident-excluir { white-space: normal; text-align: left; }
+.ident-acessos span { color: var(--cor-texto-suave); font-variant-numeric: tabular-nums; margin-right: .3rem; }
+@media (max-width: 560px) {
+  .ident-fotos { grid-template-columns: 1fr; }
+  .paciente-foto, .paciente-avatar-grande { width: 76px; height: 96px; }
+}

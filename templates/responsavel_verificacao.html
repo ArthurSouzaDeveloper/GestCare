@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block titulo %}Verificar identidade{% endblock %}
+
+{% block conteudo %}
+<h1 class="titulo-pagina"><svg class="ti" aria-hidden="true"><use href="#ti-id"/></svg> Verificar minha identidade</h1>
+<p class="subtitulo">A casa confere seu documento e sua foto antes de liberar o acesso completo.</p>
+
+{% set pendente = verificacoes|selectattr('status', 'equalto', 'pendente')|list %}
+
+{% if liberado %}
+<div class="alerta alerta-sucesso">Identidade aprovada. Seu acesso à ficha está liberado.
+  <a href="{{ url_for('painel_responsavel') }}"><strong>Ver a ficha</strong></a></div>
+{% else %}
+<div class="ident-aviso">
+  <svg class="ti" aria-hidden="true"><use href="#ti-lock"/></svg>
+  <div>
+    <strong>O acesso à ficha do idoso fica bloqueado até a casa aprovar sua identidade.</strong>
+    {% if pendente %}Seu envio está sendo analisado.
+    {% elif verificacoes %}Seu último envio foi recusado; veja o motivo abaixo e envie novas fotos.
+    {% else %}Envie as fotos abaixo para começar.{% endif %}
+  </div>
+</div>
+{% endif %}
+
+{% if verificacoes %}
+<div class="secao">
+  <div class="secao-cabecalho"><h2 class="secao-titulo">Meus envios</h2></div>
+  <ul class="ident-lista">
+    {% for v in verificacoes %}
+    <li class="ident-item">
+      <img class="ident-mini" alt="Minha foto" src="{{ url_for('servir_identidade', verificacao_id=v.id, tipo='rosto') }}">
+      <div class="ident-info">
+        <span class="ident-status ident-status-{{ v.status }}">
+          {% if v.status == 'pendente' %}Aguardando a casa{% elif v.status == 'aprovado' %}Aprovado{% else %}Recusado{% endif %}
+        </span>
+        <span class="ident-meta">Enviado em {{ v.enviado_em[:16] }}{% if v.status == 'recusado' and v.motivo %} · {{ v.motivo }}{% endif %}</span>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{% if not pendente %}
+<section class="secao">
+  <div class="secao-cabecalho"><h2 class="secao-titulo">Enviar fotos</h2></div>
+  <form method="POST" enctype="multipart/form-data">
+    <div class="form-grupo">
+      <label class="form-label" for="foto_documento">Foto do seu documento (RG ou CNH, lado da foto) <span class="form-obrigatorio">*</span></label>
+      <input type="file" name="foto_documento" id="foto_documento" class="form-input"
+             accept="image/jpeg,image/png,image/webp" capture="environment" required>
+      <p class="form-ajuda">Documento inteiro na foto, sem reflexo, com o CPF legível.</p>
+    </div>
+    <div class="form-grupo">
+      <label class="form-label" for="foto_rosto">Selfie <span class="form-obrigatorio">*</span></label>
+      <input type="file" name="foto_rosto" id="foto_rosto" class="form-input"
+             accept="image/jpeg,image/png,image/webp" capture="user" required>
+      <p class="form-ajuda">De frente, sem óculos escuros nem boné, em lugar claro.</p>
+    </div>
+    <fieldset class="ident-termo">
+      <legend>Consentimento</legend>
+      <p>{{ TERMO_BIOMETRIA }}</p>
+      <label class="ident-check">
+        <input type="checkbox" name="aceite_termo" value="sim" required>
+        <span>Li e concordo.</span>
+      </label>
+    </fieldset>
+    <div class="form-botoes">
+      <button type="submit" class="botao botao-primario"><svg class="ti" aria-hidden="true"><use href="#ti-upload"/></svg> Enviar</button>
+    </div>
+  </form>
+</section>
+{% endif %}
+
+{% if liberado %}<a href="{{ url_for('painel_responsavel') }}" class="botao botao-secundario">← Voltar à ficha</a>{% endif %}
+{% endblock %}

@@ -45,6 +45,9 @@
 {% else %}
   {% set destinos = [] %}
 {% endif %}
+{# Destinos de gestão: entram na sidebar e, no celular, no menu de conta
+   (a barra inferior já está no limite de 5 itens). #}
+{% set destinos_extra = [('repositorio', 'Repositório', 'id')] if perfil == 'admin' else ([('verificacao_responsavel', 'Identidade', 'id')] if perfil == 'responsavel' else []) %}
 
 <a class="pular-para-conteudo" href="#conteudo">Pular para o conteúdo</a>
 
@@ -63,10 +66,10 @@
       </div>
 
       <nav class="sidebar-nav" aria-label="Navegação principal">
-        {% for endpoint, rotulo, icone in destinos %}
+        {% for endpoint, rotulo, icone in destinos + destinos_extra %}
           <a href="{{ url_for(endpoint) }}"
-             class="sidebar-item {% if request.endpoint == endpoint %}ativo{% endif %}"
-             {% if request.endpoint == endpoint %}aria-current="page"{% endif %}>
+             class="sidebar-item {% if request.endpoint in (endpoint, endpoint ~ "_detalhe") %}ativo{% endif %}"
+             {% if request.endpoint in (endpoint, endpoint ~ "_detalhe") %}aria-current="page"{% endif %}>
             <svg class="ti" aria-hidden="true"><use href="#ti-{{ icone }}"/></svg>
             <span>{{ rotulo }}</span>
           </a>
