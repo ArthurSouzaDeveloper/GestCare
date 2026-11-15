@@ -393,3 +393,74 @@ async function ativarNotificacoes(silencioso) {
     });
   });
 })();
+
+
+// ── BUSCA GLOBAL DE PACIENTES ─────────────────────────────
+// Campo no topo da equipe. Tecla "/" foca o campo (fora de campos de texto).
+// Sem texto mostra os últimos pacientes abertos; com 2+ letras busca no servidor.
+(function () {
+  const campo = document.getElementById('busca-global-campo');
+  const lista = document.getElementById('busca-global-lista');
+  if (!campo || !lista) return;
+  let espera, requisicao = 0, itens = [], ativo = -1;
+
+  function fechar() { lista.hidden = true; campo.setAttribute('aria-expanded', 'false'); ativo = -1; }
+  function marcar(i) {
+    itens.forEach((a, k) => a.setAttribute('aria-selected', k === i ? 'true' : 'false'));
+    ativo = i;
+  }
+  function desenhar(dados, texto) {
+    lista.textContent = '';
+    if (dados.recentes && dados.resultados.length) {
+      const t = document.createElement('li'); t.className = 'busca-global-sec'; t.textContent = 'Abertos recentemente';
+      lista.appendChild(t);
+    }
+    dados.resultados.forEach(r => {
+      const li = document.createElement('li'); li.setAttribute('role', 'option');
+      const a = document.createElement('a'); a.href = r.url;
+      const n = document.createElement('span'); n.textContent = r.nome;
+      const q = document.createElement('span'); q.textContent = r.quarto ? 'Quarto ' + r.quarto : '';
+      q.style.opacity = '.7';
+      a.append(n, q); li.appendChild(a); lista.appendChild(li);
+    });
+    if (!dados.resultados.length && texto.length >= 2) {
+      const li = document.createElement('li');
+      const s = document.createElement('span'); s.className = 'busca-global-aviso';
+      s.textContent = 'Nenhum paciente com "' + texto + '".';
+      li.appendChild(s); lista.appendChild(li);
+    }
+    itens = Array.from(lista.querySelectorAll('li a'));
+    ativo = -1;
+    lista.hidden = lista.children.length === 0;
+    campo.setAttribute('aria-expanded', lista.hidden ? 'false' : 'true');
+  }
+  async function buscar() {
+    const texto = campo.value.trim();
+    if (texto.length === 1) { fechar(); return; }
+    const minha = ++requisicao;
+    try {
+      const r = await fetch(campo.dataset.url + '?q=' + encodeURIComponent(texto), { credentials: 'same-origin' });
+      if (!r.ok || minha !== requisicao) return;
+      desenhar(await r.json(), texto);
+    } catch (e) { fechar(); }
+  }
+  campo.addEventListener('input', () => { clearTimeout(espera); espera = setTimeout(buscar, 200); });
+  campo.addEventListener('focus', buscar);
+  campo.addEventListener('keydown', e => {
+    if (e.key === 'Escape') { fechar(); campo.blur(); }
+    else if (e.key === 'ArrowDown' && itens.length) { e.preventDefault(); marcar((ativo + 1) % itens.length); }
+    else if (e.key === 'ArrowUp' && itens.length) { e.preventDefault(); marcar((ativo - 1 + itens.length) % itens.length); }
+    else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (ativo >= 0) itens[ativo].click();
+      else if (campo.value.trim()) location.href = campo.dataset.lista + '?q=' + encodeURIComponent(campo.value.trim());
+    }
+  });
+  document.addEventListener('click', e => { if (!e.target.closest('#busca-global')) fechar(); });
+  document.addEventListener('keydown', e => {
+    if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+    const el = document.activeElement;
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) return;
+    e.preventDefault(); campo.focus(); campo.select();
+  });
+})();

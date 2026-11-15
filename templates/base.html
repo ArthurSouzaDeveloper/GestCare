@@ -103,6 +103,18 @@
         </a>
         <span class="topo-espaco"></span>
 
+        {% if perfil not in ('responsavel', 'superadmin') and session.get('usuario_nome') %}
+        <div class="busca-global" id="busca-global" role="search">
+          <label class="so-leitor-tela" for="busca-global-campo">Buscar paciente</label>
+          <svg class="ti busca-global-icone" aria-hidden="true"><use href="#ti-search"/></svg>
+          <input type="search" id="busca-global-campo" class="busca-global-campo" autocomplete="off"
+                 placeholder="Buscar paciente  ( / )" data-url="{{ url_for('busca_pacientes') }}"
+                 data-lista="{{ url_for('index') }}"
+                 role="combobox" aria-expanded="false" aria-controls="busca-global-lista" aria-autocomplete="list">
+          <ul class="busca-global-lista" id="busca-global-lista" role="listbox" hidden></ul>
+        </div>
+        {% endif %}
+
         <div class="conta-wrap so-desktop">
           <button type="button" class="botao-conta" id="conta-topo"
                   aria-haspopup="menu" aria-expanded="false" aria-controls="menu-conta-topo">

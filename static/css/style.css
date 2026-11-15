@@ -1263,6 +1263,27 @@ button, input, select, textarea { font-family: inherit; }
   font-size: .82rem; cursor: pointer; padding: .4rem 0; text-align: left;
   display: inline-flex; align-items: center; gap: .3rem;
 }
+.filtro-limpar:hover { text-decoration: underline; }
+.paginacao { display: flex; align-items: center; justify-content: center; gap: 1rem; margin: 1.5rem 0; flex-wrap: wrap; }
+.paginacao-info { font-size: .9rem; color: var(--texto-secundario); font-weight: 600; }
+.busca-global { position: relative; flex: 0 1 320px; min-width: 0; }
+.busca-global-campo {
+  width: 100%; min-height: 40px; padding: .45rem .75rem .45rem 2.2rem;
+  border: 1px solid var(--borda-controle); border-radius: var(--raio-pill);
+  background: var(--superficie); color: var(--texto-primario); font: inherit; font-size: .9rem;
+}
+.busca-global-campo:focus { outline: 2px solid var(--acao); outline-offset: 1px; }
+.busca-global-icone { position: absolute; left: .7rem; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; pointer-events: none; color: var(--texto-secundario); }
+.busca-global-lista {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 60; margin: 0; padding: .3rem;
+  list-style: none; background: var(--superficie); border: 1px solid var(--borda);
+  border-radius: var(--raio-md); box-shadow: var(--sombra-md); max-height: 60vh; overflow: auto; min-width: 260px;
+}
+.busca-global-lista li a, .busca-global-lista li span.busca-global-aviso { display: flex; justify-content: space-between; gap: .75rem; padding: .55rem .7rem; border-radius: var(--raio-sm); color: var(--texto-primario); text-decoration: none; font-size: .9rem; }
+.busca-global-lista li a:hover, .busca-global-lista li a[aria-selected="true"] { background: var(--superficie-afundada); }
+.busca-global-lista .busca-global-aviso { color: var(--texto-secundario); font-size: .8rem; }
+.busca-global-sec { padding: .4rem .7rem .1rem; font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--texto-secundario); }
+@media (max-width: 767px) { .busca-global { flex: 1 1 auto; } }
 .filtro-resumo { font-size: .85rem; color: var(--cor-texto-suave); margin-bottom: .75rem; font-weight: 600; }
 
 /* ── LISTA DE USUÁRIOS (compacta) ───────────────────────── */

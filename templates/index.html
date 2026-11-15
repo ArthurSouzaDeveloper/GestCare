@@ -45,14 +45,14 @@
 <div class="pagina-cabecalho">
   <div class="pagina-cabecalho-texto">
     <h1 class="titulo-pagina">Pacientes</h1>
-    {% if pacientes %}
+    {% if total_casa %}
     <p class="subtitulo">
-      {{ pacientes|length }} morador{{ 'es' if pacientes|length != 1 }}
+      {{ total_casa }} morador{{ 'es' if total_casa != 1 }}
       em {{ session.get('casa_nome', 'cuidado') }}
     </p>
     {% endif %}
   </div>
-  {% if pacientes %}
+  {% if total_casa %}
   <div class="pagina-acoes">
     <a href="{{ url_for('novo_paciente') }}" class="botao botao-primario">
       <svg class="ti" aria-hidden="true"><use href="#ti-user-plus"/></svg> Cadastrar paciente
@@ -68,7 +68,7 @@
   <div class="stat-card">
     <div class="stat-card-icone"><svg class="ti" aria-hidden="true"><use href="#ti-users"/></svg></div>
     <div class="stat-card-label">Pacientes</div>
-    <div class="stat-card-numero">{{ pacientes|length }}</div>
+    <div class="stat-card-numero">{{ total_casa }}</div>
   </div>
   <div class="stat-card">
     <div class="stat-card-icone"><svg class="ti" aria-hidden="true"><use href="#ti-pill"/></svg></div>
@@ -87,58 +87,58 @@
   </div>
 </div>
 
-{% if pacientes %}
-<div class="busca-wrap">
-  <span class="busca-icone"><svg class="ti" aria-hidden="true"><use href="#ti-search"/></svg></span>
-  <label class="so-leitor-tela" for="busca">Buscar paciente por nome</label>
-  <input class="busca-input" type="search" id="busca"
-         placeholder="Buscar por nome" autocomplete="off">
-</div>
+{% if total_casa %}
+<form method="get" action="{{ url_for('index') }}" id="form-filtros" role="search">
+  <div class="busca-wrap">
+    <span class="busca-icone"><svg class="ti" aria-hidden="true"><use href="#ti-search"/></svg></span>
+    <label class="so-leitor-tela" for="busca">Buscar paciente por nome</label>
+    <input class="busca-input" type="search" id="busca" name="q" value="{{ filtros.q }}"
+           placeholder="Buscar por nome" autocomplete="off">
+  </div>
 
-<div class="filtros-barra">
-  <div class="filtro-grupo">
-    <label class="filtro-label" for="filtro-quarto">Quarto</label>
-    <select class="filtro-select" id="filtro-quarto">
-      <option value="">Todos</option>
-      {% for q in quartos_lista %}<option value="{{ q|lower }}">Quarto {{ q }}</option>{% endfor %}
-    </select>
+  <div class="filtros-barra">
+    <div class="filtro-grupo">
+      <label class="filtro-label" for="filtro-quarto">Quarto</label>
+      <select class="filtro-select {{ 'ativo' if filtros.quarto }}" id="filtro-quarto" name="quarto">
+        <option value="">Todos</option>
+        {% for q in quartos_lista %}<option value="{{ q }}" {{ 'selected' if q|lower == filtros.quarto|lower }}>Quarto {{ q }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="filtro-grupo">
+      <label class="filtro-label" for="filtro-condicao">Condição</label>
+      <select class="filtro-select {{ 'ativo' if filtros.condicao }}" id="filtro-condicao" name="condicao">
+        <option value="">Todas</option>
+        {% for c in condicoes_lista %}<option value="{{ c }}" {{ 'selected' if c|lower == filtros.condicao|lower }}>{{ c }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="filtro-grupo">
+      <label class="filtro-label" for="filtro-idade">Idade</label>
+      <select class="filtro-select {{ 'ativo' if filtros.idade }}" id="filtro-idade" name="idade">
+        <option value="">Todas</option>
+        {% for valor, rotulo in [('0-69', 'Até 69 anos'), ('70-79', '70 a 79 anos'), ('80-89', '80 a 89 anos'), ('90-200', '90 anos ou mais')] %}
+        <option value="{{ valor }}" {{ 'selected' if filtros.idade == valor }}>{{ rotulo }}</option>
+        {% endfor %}
+      </select>
+    </div>
   </div>
-  <div class="filtro-grupo">
-    <label class="filtro-label" for="filtro-condicao">Condição</label>
-    <select class="filtro-select" id="filtro-condicao">
-      <option value="">Todas</option>
-      {% for c in condicoes_lista %}<option value="{{ c|lower }}">{{ c }}</option>{% endfor %}
-    </select>
-  </div>
-  <div class="filtro-grupo">
-    <label class="filtro-label" for="filtro-idade">Idade</label>
-    <select class="filtro-select" id="filtro-idade">
-      <option value="">Todas</option>
-      <option value="0-69">Até 69 anos</option>
-      <option value="70-79">70 a 79 anos</option>
-      <option value="80-89">80 a 89 anos</option>
-      <option value="90-200">90 anos ou mais</option>
-    </select>
-  </div>
-</div>
+  <noscript><button type="submit" class="botao botao-secundario">Filtrar</button></noscript>
+</form>
 
 <div class="fileira-entre esp-y-4">
-  <p class="filtro-resumo" id="filtro-resumo" role="status" aria-live="polite"></p>
-  <button type="button" class="filtro-limpar" id="filtro-limpar" hidden>
+  <p class="filtro-resumo" id="filtro-resumo" role="status" aria-live="polite">
+    {% if filtros_ativos %}{{ total }} de {{ total_casa }} paciente{{ 's' if total_casa != 1 }}{% elif paginas > 1 %}{{ total }} pacientes · página {{ pagina }} de {{ paginas }}{% endif %}
+  </p>
+  {% if filtros_ativos %}
+  <a class="filtro-limpar" href="{{ url_for('index') }}">
     <svg class="ti" aria-hidden="true"><use href="#ti-filter-off"/></svg> Limpar filtros
-  </button>
+  </a>
+  {% endif %}
 </div>
-{% endif %}
 
 {% if pacientes %}
   <div class="grid-pacientes" id="lista-pacientes">
     {% for p in pacientes %}
-    <a href="{{ url_for('detalhe_paciente', paciente_id=p.id) }}"
-       class="card-paciente"
-       data-nome="{{ p.nome|lower }}"
-       data-quarto="{{ (p.quarto or '')|lower }}"
-       data-condicoes="{{ (p.condicoes_lista|join('|'))|lower }}"
-       data-idade="{{ p.idade if p.idade is not none else '' }}">
+    <a href="{{ url_for('detalhe_paciente', paciente_id=p.id) }}" class="card-paciente">
       <div class="card-avatar">{{ p.nome[0]|upper }}</div>
       <div class="card-corpo">
         <div class="card-paciente-nome">{{ p.nome }}</div>
@@ -163,18 +163,33 @@
     {% endfor %}
   </div>
 
-  {# Resultado zero: a lista tem pacientes, o recorte é que está estreito. #}
-  <div id="busca-vazio" class="vazio" hidden>
+  {% if paginas > 1 %}
+  {% set base = filtros_ativos %}
+  <nav class="paginacao" aria-label="Páginas de pacientes">
+    {% if pagina > 1 %}
+      <a class="botao botao-secundario" rel="prev" href="{{ url_for('index', pagina=pagina - 1, **base) }}">
+        <svg class="ti" aria-hidden="true"><use href="#ti-chevron-left"/></svg> Anterior</a>
+    {% endif %}
+    <span class="paginacao-info">Página {{ pagina }} de {{ paginas }}</span>
+    {% if pagina < paginas %}
+      <a class="botao botao-secundario" rel="next" href="{{ url_for('index', pagina=pagina + 1, **base) }}">
+        Próxima <svg class="ti" aria-hidden="true"><use href="#ti-chevron-right"/></svg></a>
+    {% endif %}
+  </nav>
+  {% endif %}
+
+{% else %}
+  <div class="vazio">
     <span class="vazio-icone"><svg class="ti" aria-hidden="true"><use href="#ti-search"/></svg></span>
     <h2 class="vazio-titulo">Nenhum paciente com esse recorte</h2>
-    <p class="vazio-texto" id="busca-vazio-texto">
-      Os {{ pacientes|length }} pacientes da casa continuam cadastrados — o filtro é que não
-      encontrou ninguém.
+    <p class="vazio-texto">
+      Os {{ total_casa }} pacientes da casa continuam cadastrados: o filtro é que não encontrou ninguém.
     </p>
-    <button type="button" class="botao botao-secundario" id="filtro-limpar-vazio">
+    <a class="botao botao-secundario" href="{{ url_for('index') }}">
       <svg class="ti" aria-hidden="true"><use href="#ti-filter-off"/></svg> Limpar filtros
-    </button>
+    </a>
   </div>
+{% endif %}
 
 {% else %}
   <div class="vazio">
@@ -192,85 +207,22 @@
 
 {% block scripts %}
 <script>
-// Busca e filtros client-side — sem recarregar a página.
-// Visibilidade pelo atributo `hidden`, não por style inline.
-const busca     = document.getElementById('busca');
-const fQuarto   = document.getElementById('filtro-quarto');
-const fCond     = document.getElementById('filtro-condicao');
-const fIdade    = document.getElementById('filtro-idade');
-const cards     = document.querySelectorAll('.card-paciente');
-const semRes    = document.getElementById('busca-vazio');
-const semResTxt = document.getElementById('busca-vazio-texto');
-const resumo    = document.getElementById('filtro-resumo');
-const btnLimpar = document.getElementById('filtro-limpar');
-const btnLimparVazio = document.getElementById('filtro-limpar-vazio');
-const lista     = document.getElementById('lista-pacientes');
-const selects   = [fQuarto, fCond, fIdade].filter(Boolean);
-
-function rotuloQuarto() {
-  const opt = fQuarto?.selectedOptions?.[0];
-  return (fQuarto?.value && opt) ? opt.textContent.trim() : '';
-}
-
-function aplicar() {
-  const q      = (busca?.value || '').toLowerCase().trim();
-  const quarto = fQuarto?.value || '';
-  const cond   = fCond?.value || '';
-  const idade  = fIdade?.value || '';
-  const [idadeMin, idadeMax] = idade ? idade.split('-').map(Number) : [null, null];
-
-  let visiveis = 0;
-  cards.forEach(card => {
-    const d = card.dataset;
-    let ok = !q || (d.nome || '').includes(q);
-    if (ok && quarto) ok = (d.quarto || '') === quarto;
-    if (ok && cond)   ok = (d.condicoes || '').split('|').includes(cond);
-    if (ok && idade) {
-      const n = parseInt(d.idade, 10);
-      ok = !isNaN(n) && n >= idadeMin && n <= idadeMax;
-    }
-    card.hidden = !ok;
-    if (ok) visiveis++;
+// Busca e filtros rodam no servidor: a página recarrega com o resultado.
+// A busca espera uma pausa na digitação; os filtros enviam ao mudar.
+(function () {
+  const form = document.getElementById('form-filtros');
+  if (!form) return;
+  const busca = document.getElementById('busca');
+  let espera;
+  busca.addEventListener('input', () => {
+    clearTimeout(espera);
+    espera = setTimeout(() => form.submit(), 450);
   });
-
-  const temFiltro = !!(q || quarto || cond || idade);
-  const vazio = temFiltro && visiveis === 0;
-
-  if (semRes) semRes.hidden = !vazio;
-  if (lista)  lista.hidden = vazio;
-  if (btnLimpar) btnLimpar.hidden = !temFiltro;
-
-  // Microcópia do domínio: diz qual recorte não achou ninguém.
-  if (vazio && semResTxt) {
-    const quartoTxt = rotuloQuarto();
-    if (quartoTxt && !q && !cond && !idade) {
-      semResTxt.textContent = 'Nenhum paciente no ' + quartoTxt.toLowerCase() + '.';
-    } else if (q && !quarto && !cond && !idade) {
-      semResTxt.textContent = 'Nenhum paciente com "' + busca.value.trim() + '" no nome.';
-    } else {
-      semResTxt.textContent = 'Nenhum dos ' + cards.length +
-        ' pacientes atende a todos os filtros ao mesmo tempo.';
-    }
+  form.querySelectorAll('select').forEach(s => s.addEventListener('change', () => form.submit()));
+  if (busca.value || new URLSearchParams(location.search).has('foco')) {
+    busca.focus();
+    busca.setSelectionRange(busca.value.length, busca.value.length);
   }
-
-  if (resumo) {
-    resumo.textContent = temFiltro
-      ? `${visiveis} de ${cards.length} paciente${cards.length !== 1 ? 's' : ''}`
-      : '';
-  }
-  selects.forEach(s => s.classList.toggle('ativo', !!s.value));
-}
-
-function limpar() {
-  if (busca) busca.value = '';
-  selects.forEach(s => s.value = '');
-  aplicar();
-  busca?.focus();
-}
-
-busca?.addEventListener('input', aplicar);
-selects.forEach(s => s.addEventListener('change', aplicar));
-btnLimpar?.addEventListener('click', limpar);
-btnLimparVazio?.addEventListener('click', limpar);
+})();
 </script>
 {% endblock %}
