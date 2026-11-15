@@ -568,6 +568,13 @@ def init_db():
             )
         ''')
 
+        # Recado da casa para a família: único texto do exame que o portal do
+        # responsável mostra. 'observacoes' continua sendo nota interna da equipe.
+        try:
+            cursor.execute('ALTER TABLE exames ADD COLUMN observacao_familia TEXT')
+        except Exception:
+            pass
+
         conn.commit()
 
 
@@ -2305,13 +2312,15 @@ def novo_exame(paciente_id):
         conn.execute('''
             INSERT INTO exames
                 (paciente_id, tipo_exame, data_exame, laboratorio,
-                 medico_solicitante, resultado, valores_referencia, arquivo_nome, observacoes)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 medico_solicitante, resultado, valores_referencia, arquivo_nome, observacoes,
+                 observacao_familia)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             paciente_id, dados.get('tipo_exame'), dados.get('data_exame'),
             dados.get('laboratorio'), dados.get('medico_solicitante'),
             dados.get('resultado'), dados.get('valores_referencia'),
-            arquivo_nome, dados.get('observacoes')
+            arquivo_nome, dados.get('observacoes'),
+            (dados.get('observacao_familia') or '').strip() or None
         ))
     flash('Exame registrado com sucesso!', 'sucesso')
     return redirect(url_for('listar_exames', paciente_id=paciente_id))
