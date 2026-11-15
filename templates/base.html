@@ -29,25 +29,29 @@
       ('familia_exames', 'Exames', 'file-text'),
       ('familia_visitas', 'Visitas', 'calendar')
   ] %}
-{% elif perfil == 'admin' %}
-  {% set destinos = [
-      ('index', 'Pacientes', 'users'),
-      ('agenda_diaria', 'Agenda', 'calendar'),
-      ('novo_paciente', 'Cadastrar', 'plus'),
-      ('listar_usuarios', 'Usuários', 'user-cog')
-  ] %}
 {% elif session.get('usuario_nome') %}
   {% set destinos = [
+      ('hoje', 'Hoje', 'home'),
       ('index', 'Pacientes', 'users'),
       ('agenda_diaria', 'Agenda', 'calendar'),
-      ('novo_paciente', 'Cadastrar', 'plus')
+      ('registros', 'Registros', 'clipboard-list')
   ] %}
 {% else %}
   {% set destinos = [] %}
 {% endif %}
 {# Destinos de gestão: entram na sidebar e, no celular, no menu de conta
    (a barra inferior já está no limite de 5 itens). #}
-{% set destinos_extra = [('repositorio', 'Repositório', 'id')] if perfil == 'admin' else ([('verificacao_responsavel', 'Identidade', 'id')] if perfil == 'responsavel' else []) %}
+{% set _registros = [('visao_exames', 'Exames', 'microscope'), ('visao_visitas', 'Visitas', 'users'),
+                     ('visao_evolucoes', 'Evoluções', 'clipboard-list'), ('visao_medicamentos', 'Medicamentos', 'pill')] %}
+{% if perfil == 'admin' %}
+  {% set destinos_extra = [('novo_paciente', 'Cadastrar', 'plus')] + _registros + [('listar_usuarios', 'Usuários', 'user-cog'), ('repositorio', 'Repositório', 'id')] %}
+{% elif perfil == 'responsavel' %}
+  {% set destinos_extra = [('verificacao_responsavel', 'Identidade', 'id')] %}
+{% elif session.get('usuario_nome') and perfil != 'superadmin' %}
+  {% set destinos_extra = [('novo_paciente', 'Cadastrar', 'plus')] + _registros %}
+{% else %}
+  {% set destinos_extra = [] %}
+{% endif %}
 
 <a class="pular-para-conteudo" href="#conteudo">Pular para o conteúdo</a>
 

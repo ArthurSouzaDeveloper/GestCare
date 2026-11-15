@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block titulo %}{{ titulo }}{% endblock %}
+
+{% block conteudo %}
+<div class="pagina-cabecalho">
+  <div class="pagina-cabecalho-texto">
+    <h1 class="titulo-pagina"><svg class="ti" aria-hidden="true"><use href="#ti-{{ icone }}"/></svg> {{ titulo }}</h1>
+    <p class="subtitulo">{{ subtitulo }}</p>
+  </div>
+</div>
+
+<form method="get" action="{{ url_for(endpoint) }}" id="form-visao" role="search">
+  <div class="busca-wrap">
+    <span class="busca-icone"><svg class="ti" aria-hidden="true"><use href="#ti-search"/></svg></span>
+    <label class="so-leitor-tela" for="busca-visao">Qual paciente?</label>
+    <input class="busca-input" type="search" id="busca-visao" name="q" value="{{ q }}"
+           placeholder="Qual paciente?" autocomplete="off">
+  </div>
+  <div class="filtros-barra">
+    {% for f in filtros %}
+    <div class="filtro-grupo">
+      <label class="filtro-label" for="f-{{ f.nome }}">{{ f.rotulo }}</label>
+      <select class="filtro-select" id="f-{{ f.nome }}" name="{{ f.nome }}">
+        {% for valor, rotulo in f.opcoes %}<option value="{{ valor }}" {{ 'selected' if f.valor == valor }}>{{ rotulo }}</option>{% endfor %}
+      </select>
+    </div>
+    {% endfor %}
+  </div>
+  <noscript><button type="submit" class="botao botao-secundario">Filtrar</button></noscript>
+</form>
+
+<p class="filtro-resumo" role="status" aria-live="polite">{{ total }} resultado{{ 's' if total != 1 }}{% if paginas > 1 %} · página {{ pagina }} de {{ paginas }}{% endif %}</p>
+
+{% if linhas %}
+<div class="lista-visao">
+  {% for l in linhas %}
+  <a class="linha-visao" href="{{ l.url }}">
+    <span class="linha-visao-corpo">
+      <span><strong>{{ l.paciente }}</strong>{% if l.quarto %} <span class="linha-visao-suave">· Quarto {{ l.quarto }}</span>{% endif %}</span>
+      <span>{{ l.titulo }}</span>
+      {% if l.detalhe %}<span class="linha-visao-suave">{{ l.detalhe }}</span>{% endif %}
+    </span>
+    <span class="linha-visao-lado">
+      {% if l.selo %}<span class="selo-visao selo-visao-alerta">{{ l.selo }}</span>{% endif %}
+      {% if l.data %}<span class="linha-visao-suave">{{ l.data }}</span>{% endif %}
+    </span>
+  </a>
+  {% endfor %}
+</div>
+
+{% if paginas > 1 %}
+<nav class="paginacao" aria-label="Páginas">
+  {% if pagina > 1 %}<a class="botao botao-secundario" rel="prev" href="{{ url_for(endpoint, pagina=pagina - 1, **args) }}"><svg class="ti" aria-hidden="true"><use href="#ti-chevron-left"/></svg> Anterior</a>{% endif %}
+  <span class="paginacao-info">Página {{ pagina }} de {{ paginas }}</span>
+  {% if pagina < paginas %}<a class="botao botao-secundario" rel="next" href="{{ url_for(endpoint, pagina=pagina + 1, **args) }}">Próxima <svg class="ti" aria-hidden="true"><use href="#ti-chevron-right"/></svg></a>{% endif %}
+</nav>
+{% endif %}
+{% else %}
+<div class="vazio">
+  <span class="vazio-icone"><svg class="ti" aria-hidden="true"><use href="#ti-search"/></svg></span>
+  <h2 class="vazio-titulo">{{ vazio }}</h2>
+  <p class="vazio-texto">Tente outro paciente ou outro filtro.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  const form = document.getElementById('form-visao');
+  const busca = document.getElementById('busca-visao');
+  let espera;
+  busca.addEventListener('input', () => { clearTimeout(espera); espera = setTimeout(() => form.submit(), 450); });
+  form.querySelectorAll('select').forEach(s => s.addEventListener('change', () => form.submit()));
+  if (busca.value) { busca.focus(); busca.setSelectionRange(busca.value.length, busca.value.length); }
+})();
+</script>
+{% endblock %}
