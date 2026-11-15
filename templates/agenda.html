@@ -51,36 +51,30 @@
     <div class="agenda-lista">
       {% for item in itens %}
       <div class="agenda-item" data-quarto="{{ (item.quarto or '')|lower }}">
-        <div>
-          <div class="agenda-paciente">{{ item.paciente }}</div>
-          {% if item.quarto %}
-            <div class="agenda-quarto">Quarto {{ item.quarto }}</div>
+        <div class="agenda-texto">
+          <div class="agenda-linha">
+            <span class="agenda-paciente">{{ item.paciente }}</span>
+            {% if item.quarto %}<span class="agenda-quarto">Quarto {{ item.quarto }}</span>{% endif %}
+          </div>
+          <div class="agenda-linha">
+            <span class="agenda-medicamento">{{ item.medicamento }}</span>
+            {% if item.dosagem %}<span class="agenda-dosagem">{{ item.dosagem }}</span>{% endif %}
+            {% if item.via_administracao %}<span class="medicamento-via">{{ item.via_administracao }}</span>{% endif %}
+          </div>
+          {% if item.instrucoes %}
+          <div class="agenda-instrucoes">{{ item.instrucoes }}</div>
           {% endif %}
         </div>
-        <div>
-          <div class="agenda-medicamento">{{ item.medicamento }}</div>
-          {% if item.dosagem %}
-            <div class="agenda-dosagem">{{ item.dosagem }}</div>
-          {% endif %}
-          {% if item.via_administracao %}
-            <span class="medicamento-via">{{ item.via_administracao }}</span>
-          {% endif %}
-        </div>
-        {% if item.instrucoes %}
-        <div style="font-size:.85rem;color:var(--cor-texto-suave);font-style:italic">
-          <svg class="ti" aria-hidden="true"><use href="#ti-info-circle"/></svg> {{ item.instrucoes }}
-        </div>
-        {% endif %}
         <div class="agenda-acoes">
           <form method="POST"
                 action="{{ url_for('administrar_dose', medicamento_id=item.medicamento_id) }}">
             <input type="hidden" name="horario_previsto" value="{{ horario }}">
-            <button type="submit" class="botao botao-primario botao-pequeno botao-bloco"
+            <button type="submit" class="botao botao-primario botao-pequeno agenda-administrar"
                    ><svg class="ti" aria-hidden="true"><use href="#ti-check"/></svg> Administrado</button>
           </form>
           <a href="{{ url_for('detalhe_paciente', paciente_id=item.paciente_id) }}"
-             class="botao botao-secundario botao-pequeno"
-             style="width:100%;text-align:center">Ver paciente</a>
+             class="botao botao-secundario botao-pequeno agenda-ver"
+             aria-label="Ver paciente {{ item.paciente }}" title="Ver paciente"><svg class="ti" aria-hidden="true"><use href="#ti-user"/></svg><span class="agenda-ver-texto">Ver paciente</span></a>
         </div>
       </div>
       {% endfor %}
