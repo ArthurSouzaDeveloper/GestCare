@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block titulo %}Revisar identidade{% endblock %}
+
+{% block conteudo %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;gap:1rem;flex-wrap:wrap">
+  <div>
+    <h1 class="titulo-pagina"><i class="ti ti-id" aria-hidden="true"></i> {{ pessoa.nome or '(pessoa removida)' }}</h1>
+    <p class="subtitulo">
+      {% if v.tipo_pessoa == 'paciente' %}Idoso{% else %}Responsável{% endif %}
+      · enviado em {{ v.enviado_em[:16] }}{% if nomes.get(v.enviado_por) %} por {{ nomes[v.enviado_por] }}{% endif %}
+    </p>
+  </div>
+  <a href="{{ url_for('repositorio') }}" class="botao botao-secundario botao-pequeno">← Repositório</a>
+</div>
+
+<div class="ident-fotos">
+  <figure>
+    <img src="{{ url_for('servir_identidade', verificacao_id=v.id, tipo='documento') }}" alt="Foto do documento">
+    <figcaption>Documento</figcaption>
+  </figure>
+  <figure>
+    <img src="{{ url_for('servir_identidade', verificacao_id=v.id, tipo='rosto') }}" alt="Foto do rosto">
+    <figcaption>Rosto {% if v.rosto_presencial %}(tirado na recepção){% else %}(enviado à distância){% endif %}</figcaption>
+  </figure>
+</div>
+
+<div class="secao">
+  <div class="secao-cabecalho"><h2 class="secao-titulo">Análise automática</h2>
+    <span class="ident-status ident-status-{{ v.status }}">{{ v.status|capitalize }}</span></div>
+  <div class="paciente-dados-grid">
+    <div class="dado-item">
+      <div class="dado-label">Rosto × documento</div>
+      <div class="dado-valor">{{ ROTULOS_RESULTADO_FACIAL.get(v.resultado_facial, '—') }}
+        {% if v.distancia_facial is not none %}<span class="ident-meta">(distância {{ '%.2f'|format(v.distancia_facial) }}; abaixo de 0,50 é compatível, acima de 0,60 não confere)</span>{% endif %}
+      </div>
+    </div>
+    <div class="dado-item">
+      <div class="dado-label">CPF do cadastro</div>
+      <div class="dado-valor">{{ v.cpf_cadastro|formatar_cpf or '—' }}
+        <span class="ident-meta">{% if v.cpf_cadastro_valido %}dígitos válidos{% else %}inválido ou ausente{% endif %}</span></div>
+    </div>
+    <div class="dado-item">
+      <div class="dado-label">CPF lido no documento</div>
+      <div class="dado-valor">
+        {% if v.cpf_documento %}{% for c in v.cpf_documento.split(',') %}{{ c|formatar_cpf }}{% if not loop.last %}, {% endif %}{% endfor %}
+        {% elif v.cpf_ocr_status == 'indisponivel' %}OCR não instalado
+        {% elif v.cpf_ocr_status == 'erro' %}Falha na leitura
+        {% else %}Não encontrado na foto{% endif %}
+      </div>
+    </div>
+    <div class="dado-item">
+      <div class="dado-label">CPF confere</div>
+      <div class="dado-valor">{% if v.cpf_confere == 1 %}Sim{% elif v.cpf_confere == 0 %}<span style="color:var(--cor-erro)">Não</span>{% else %}Não deu para conferir{% endif %}</div>
+    </div>
+  </div>
+
+  <div class="ident-aviso" style="margin-top:1rem">
+    <i class="ti ti-alert-triangle" aria-hidden="true"></i>
+    <div>
+      A comparação é um indício, não prova. Ela erra com foto antiga de documento, envelhecimento,
+      óculos, pouca luz e documento plastificado com reflexo. Ela também <strong>não prova que a foto
+      é ao vivo</strong>: alguém pode enviar a foto de outra foto.
+      {% if not v.rosto_presencial %}Este rosto foi enviado à distância; se puder, confira a pessoa na recepção.{% endif %}
+      A checagem do CPF confere os dígitos verificadores e se o número bate com o documento, mas não consulta a Receita Federal.
+    </div>
+  </div>
+</div>
+
+{% if consentimento %}
+<div class="secao">
+  <div class="secao-cabecalho"><h2 class="secao-titulo">Consentimento</h2></div>
+  <p>{{ consentimento.consentido_por_nome }} ({{ consentimento.relacao }}) em {{ consentimento.coletado_em[:16] }}{% if consentimento.coletado_por_nome %}, registrado por {{ consentimento.coletado_por_nome }}{% endif %}. Termo {{ consentimento.versao_termo }}.{% if consentimento.revogado_em %} <strong>Revogado em {{ consentimento.revogado_em[:16] }}.</strong>{% endif %}</p>
+</div>
+{% endif %}
+
+<div class="secao">
+  <div class="secao-cabecalho"><h2 class="secao-titulo">Decisão</h2></div>
+  {% if v.status != 'pendente' %}
+  <p>{{ 'Aprovado' if v.status == 'aprovado' else 'Recusado' }} em {{ v.revisado_em[:16] }}{% if nomes.get(v.revisado_por) %} por {{ nomes[v.revisado_por] }}{% endif %}.{% if v.motivo %} Motivo: {{ v.motivo }}{% endif %}</p>
+  <p class="form-ajuda">Você pode mudar a decisão abaixo; a anterior fica no histórico de acessos.</p>
+  {% endif %}
+  <form method="POST" action="{{ url_for('repositorio_decidir', verificacao_id=v.id) }}">
+    <div class="form-grupo">
+      <label class="form-label" for="motivo">Motivo {% if atencao %}<span class="form-obrigatorio">* (a análise apontou divergência)</span>{% else %}(obrigatório para recusar){% endif %}</label>
+      <textarea name="motivo" id="motivo" class="form-textarea" rows="2" maxlength="500"
+                placeholder="Ex.: conferi o documento original na recepção; foto do RG é de 1985."></textarea>
+    </div>
+    <div class="form-botoes" style="justify-content:flex-start">
+      {# app.js desabilita o botão de envio no submit, e botão desabilitado não manda
+         name/value; por isso a escolha vai num campo oculto preenchido no clique. #}
+      <input type="hidden" name="decisao" value="">
+      <button type="submit" data-decisao="aprovado" onclick="this.form.decisao.value='aprovado'" class="botao botao-primario"><i class="ti ti-check" aria-hidden="true"></i> Aprovar</button>
+      <button type="submit" data-decisao="recusado" onclick="this.form.decisao.value='recusado'" class="botao botao-perigo"><i class="ti ti-x" aria-hidden="true"></i> Recusar</button>
+    </div>
+  </form>
+</div>
+
+<div class="secao">
+  <div class="secao-cabecalho"><h2 class="secao-titulo">Histórico de acessos</h2></div>
+  <ul class="ident-acessos">
+    {% for a in acessos %}
+    <li><span>{{ a.em[:16] }}</span> {{ a.usuario_nome or '—' }} · {{ a.acao|replace('_', ' ') }}{% if a.detalhe and a.acao in ('aprovado', 'recusado') %} · {{ a.detalhe }}{% endif %}</li>
+    {% endfor %}
+  </ul>
+  <form method="POST" action="{{ url_for('repositorio_excluir', verificacao_id=v.id) }}"
+        onsubmit="return confirm('Excluir as duas fotos e esta verificação? Não dá para desfazer.');" style="margin-top:1rem">
+    <button type="submit" class="botao botao-perigo botao-pequeno ident-excluir"><i class="ti ti-trash" aria-hidden="true"></i> Excluir fotos (pedido da pessoa ou fim do vínculo)</button>
+  </form>
+</div>
+{% endblock %}

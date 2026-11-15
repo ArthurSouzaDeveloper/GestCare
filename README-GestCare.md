@@ -53,6 +53,19 @@ python app.py
 
 Acesse em `http://localhost:5000`
 
+### Verificação de identidade (opcional)
+
+O Repositório (menu do admin) guarda foto do documento e do rosto de idosos e
+responsáveis. Para ligar a comparação facial e a leitura do CPF no documento,
+instale os pacotes opcionais (~350 MB, tudo roda localmente):
+
+```bash
+pip install -r requirements-verificacao.txt
+```
+
+Sem eles, as fotos continuam sendo recebidas e vão para revisão manual.
+Testes: `pip install pytest && python -m pytest tests -q`.
+
 ## Screenshots
 
 > _Adicionar prints do sistema aqui (dashboard, prontuário, portal da família)_

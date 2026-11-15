@@ -17,6 +17,7 @@ from py_vapid import Vapid01 as Vapid
 from pywebpush import webpush, WebPushException
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 from apscheduler.schedulers.background import BackgroundScheduler
+import verificacao_identidade as vid
 
 app = Flask(__name__)
 
@@ -189,6 +190,12 @@ def _migrar_exames_da_pasta_publica():
                                                            'gc_total': movidos})
 EXTENSOES_PERMITIDAS = {'pdf', 'png', 'jpg', 'jpeg', 'webp'}
 
+# Fotos de documento e de rosto: também fora de static/, servidas só pela rota
+# /identidade/arquivo/<id>/<tipo>, que confere casa e perfil e grava log de acesso.
+IDENTIDADE_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads', 'identidade')
+EXTENSOES_FOTO = {'png', 'jpg', 'jpeg', 'webp'}
+VERSAO_TERMO_BIOMETRIA = 'v1-2026-11'
+
 # ============================================================================
 # NOTIFICAÇÕES PUSH (lembrete de antibiótico no celular das enfermeiras)
 # ============================================================================
@@ -330,6 +337,7 @@ def get_db():
 def init_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    os.makedirs(IDENTIDADE_FOLDER, exist_ok=True)
     _migrar_exames_da_pasta_publica()
     with get_db() as conn:
         cursor = conn.cursor()
@@ -574,6 +582,70 @@ def init_db():
             cursor.execute('ALTER TABLE exames ADD COLUMN observacao_familia TEXT')
         except Exception:
             pass
+
+        # ── Repositório de identidade (documento + rosto) ──────────────────
+        # tipo_pessoa + pessoa_id apontam para pacientes.id ou usuarios.id
+        # (responsável). Não há FK porque a coluna aponta para duas tabelas.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS consentimentos_biometria (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                casa_id INTEGER NOT NULL REFERENCES casas(id),
+                tipo_pessoa TEXT NOT NULL CHECK (tipo_pessoa IN ('paciente', 'responsavel')),
+                pessoa_id INTEGER NOT NULL,
+                consentido_por_nome TEXT NOT NULL,
+                relacao TEXT NOT NULL,
+                versao_termo TEXT NOT NULL,
+                coletado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+                coletado_em TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+                revogado_em TEXT
+            )
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS verificacoes_identidade (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                casa_id INTEGER NOT NULL REFERENCES casas(id),
+                tipo_pessoa TEXT NOT NULL CHECK (tipo_pessoa IN ('paciente', 'responsavel')),
+                pessoa_id INTEGER NOT NULL,
+                consentimento_id INTEGER REFERENCES consentimentos_biometria(id),
+                foto_documento TEXT NOT NULL,
+                foto_rosto TEXT NOT NULL,
+                rosto_presencial INTEGER NOT NULL DEFAULT 0,
+                cpf_cadastro TEXT,
+                cpf_cadastro_valido INTEGER,
+                cpf_documento TEXT,
+                cpf_ocr_status TEXT,
+                cpf_confere INTEGER,
+                resultado_facial TEXT,
+                distancia_facial REAL,
+                motor TEXT,
+                status TEXT NOT NULL DEFAULT 'pendente'
+                    CHECK (status IN ('pendente', 'aprovado', 'recusado')),
+                motivo TEXT,
+                enviado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+                enviado_em TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+                revisado_por INTEGER REFERENCES usuarios(id) ON DELETE SET NULL,
+                revisado_em TEXT
+            )
+        ''')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_verif_pessoa '
+                       'ON verificacoes_identidade (casa_id, tipo_pessoa, pessoa_id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_verif_status '
+                       'ON verificacoes_identidade (casa_id, status)')
+        # Log de acesso: sem FK para a verificação, para o registro sobreviver à exclusão.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS acessos_identidade (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                casa_id INTEGER,
+                usuario_id INTEGER,
+                verificacao_id INTEGER,
+                acao TEXT NOT NULL,
+                detalhe TEXT,
+                ip TEXT,
+                em TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+            )
+        ''')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_acessos_verif '
+                       'ON acessos_identidade (verificacao_id)')
 
         conn.commit()
 
@@ -1385,6 +1457,8 @@ def excluir_usuario(usuario_id):
             if outros_admins == 0:
                 flash('Não é possível excluir o único administrador da casa.', 'erro')
                 return redirect(url_for('listar_usuarios'))
+        if usuario['perfil'] == 'responsavel':
+            apagar_verificacoes_da_pessoa(conn, 'responsavel', usuario_id)
         conn.execute('DELETE FROM usuarios WHERE id = ? AND casa_id = ?', (usuario_id, casa_id_atual()))
         flash(f'Usuário {usuario["nome"]} excluído permanentemente.', 'sucesso')
     return redirect(url_for('listar_usuarios'))
@@ -1694,12 +1768,27 @@ def detalhe_paciente(paciente_id):
             'SELECT COUNT(*) as total FROM evolucoes_medicas WHERE paciente_id = ?', (paciente_id,)
         ).fetchone()['total']
 
+        # Documentos e verificação: do idoso e dos responsáveis vinculados a ele.
+        foto_rosto = foto_rosto_paciente(conn, paciente_id)
+        verificacoes_idoso = _verificacoes_da_pessoa(conn, 'paciente', paciente_id)
+        responsaveis = []
+        for r in conn.execute(
+                "SELECT id, nome FROM usuarios WHERE casa_id = ? AND perfil = 'responsavel' "
+                "AND paciente_id = ? ORDER BY nome", (casa_id_atual(), paciente_id)).fetchall():
+            ultima = conn.execute(
+                "SELECT * FROM verificacoes_identidade WHERE casa_id = ? AND "
+                "tipo_pessoa = 'responsavel' AND pessoa_id = ? ORDER BY id DESC LIMIT 1",
+                (casa_id_atual(), r['id'])).fetchone()
+            responsaveis.append({'id': r['id'], 'nome': r['nome'], 'verificacao': ultima})
+
     return render_template(
         'paciente_detalhe.html',
         paciente=paciente_dict, condicoes=condicoes, medicamentos=medicamentos,
         ficha_psico=ficha_psico, profissionais=profissionais, dieta=dieta,
         total_visitas=total_visitas, total_exames=total_exames,
         total_evolucoes=total_evolucoes,
+        foto_rosto=foto_rosto, verificacoes_idoso=verificacoes_idoso,
+        responsaveis_vinculados=responsaveis,
     )
 
 
@@ -2374,6 +2463,402 @@ def servir_exame(nome_arquivo):
         return 'Acesso negado.', 403
 
     return send_from_directory(UPLOAD_FOLDER, nome_arquivo)
+
+
+# ============================================================================
+# REPOSITÓRIO DE IDENTIDADE (foto do documento + foto do rosto)
+# ============================================================================
+# A análise automática (CPF, OCR, comparação facial) roda localmente e só
+# SINALIZA. Quem aprova ou recusa é sempre o administrador da casa.
+
+TERMO_BIOMETRIA = (
+    'Autorizo a instituição a guardar uma foto do meu documento de identidade e uma '
+    'foto do meu rosto, e a compará-las de forma automática neste servidor, apenas para '
+    'confirmar minha identidade no cadastro. As fotos não são enviadas a outras empresas, '
+    'só a administração da casa vê o documento, e posso pedir a exclusão a qualquer momento.'
+)
+
+ROTULOS_RESULTADO_FACIAL = {
+    'compativel': 'Rostos compatíveis',
+    'inconclusivo': 'Inconclusivo',
+    'incompativel': 'Rostos não conferem',
+    'sem_rosto_documento': 'Nenhum rosto no documento',
+    'sem_rosto_selfie': 'Nenhum rosto na foto',
+    'indisponivel': 'Comparação indisponível',
+    'erro': 'Falha ao analisar',
+}
+app.jinja_env.globals['ROTULOS_RESULTADO_FACIAL'] = ROTULOS_RESULTADO_FACIAL
+app.jinja_env.globals['TERMO_BIOMETRIA'] = TERMO_BIOMETRIA
+app.jinja_env.tests['atencao_identidade'] = lambda v: vid.precisa_atencao(dict(v))
+
+
+def salvar_foto_identidade(arquivo):
+    """Salva uma foto (JPG, PNG ou WEBP) com nome aleatório. Devolve o nome ou None."""
+    if not arquivo or not arquivo.filename or '.' not in arquivo.filename:
+        return None
+    ext = arquivo.filename.rsplit('.', 1)[1].lower()
+    if ext not in EXTENSOES_FOTO:
+        return None
+    cabecalho = arquivo.read(12)
+    arquivo.seek(0)
+    eh_imagem = (cabecalho.startswith(b'\x89PNG') or cabecalho.startswith(b'\xff\xd8\xff')
+                 or (cabecalho.startswith(b'RIFF') and cabecalho[8:12] == b'WEBP'))
+    if not eh_imagem:
+        log.warning('upload_identidade_invalido', extra={'gc_action': 'upload_identidade',
+                    'gc_user_id': session.get('usuario_id')})
+        return None
+    nome = f'{uuid.uuid4().hex}.{"jpg" if ext == "jpeg" else ext}'
+    arquivo.save(os.path.join(IDENTIDADE_FOLDER, nome))
+    return nome
+
+
+def _apagar_arquivos_identidade(*nomes):
+    for nome in nomes:
+        if not nome:
+            continue
+        caminho = os.path.join(IDENTIDADE_FOLDER, os.path.basename(nome))
+        if os.path.isfile(caminho):
+            os.remove(caminho)
+
+
+def _registrar_acesso_identidade(conn, verificacao_id, acao, detalhe=None):
+    conn.execute(
+        'INSERT INTO acessos_identidade (casa_id, usuario_id, verificacao_id, acao, detalhe, ip) '
+        'VALUES (?, ?, ?, ?, ?, ?)',
+        (casa_id_atual(), session.get('usuario_id'), verificacao_id, acao, detalhe,
+         request.remote_addr)
+    )
+
+
+def _pessoa_da_casa(conn, tipo_pessoa, pessoa_id):
+    """Nome e CPF de um idoso ou responsável da casa atual (None se não for da casa)."""
+    if tipo_pessoa == 'paciente':
+        row = conn.execute(
+            'SELECT id, nome, cpf, contato_emergencia_nome, contato_emergencia_parentesco '
+            'FROM pacientes WHERE id = ? AND casa_id = ? AND ativo = 1',
+            (pessoa_id, casa_id_atual())).fetchone()
+    elif tipo_pessoa == 'responsavel':
+        row = conn.execute(
+            "SELECT id, nome, cpf, paciente_id FROM usuarios "
+            "WHERE id = ? AND casa_id = ? AND perfil = 'responsavel'",
+            (pessoa_id, casa_id_atual())).fetchone()
+    else:
+        return None
+    return dict(row) if row else None
+
+
+def _consentimento_ativo(conn, tipo_pessoa, pessoa_id):
+    return conn.execute(
+        'SELECT * FROM consentimentos_biometria WHERE casa_id = ? AND tipo_pessoa = ? '
+        'AND pessoa_id = ? AND revogado_em IS NULL ORDER BY id DESC LIMIT 1',
+        (casa_id_atual(), tipo_pessoa, pessoa_id)).fetchone()
+
+
+def _criar_verificacao(conn, tipo_pessoa, pessoa, consentimento_id,
+                       foto_documento, foto_rosto, presencial):
+    """Roda a análise local e grava a verificação como 'pendente'."""
+    analise = vid.analisar(os.path.join(IDENTIDADE_FOLDER, foto_documento),
+                           os.path.join(IDENTIDADE_FOLDER, foto_rosto),
+                           pessoa.get('cpf'))
+    cur = conn.execute('''
+        INSERT INTO verificacoes_identidade
+            (casa_id, tipo_pessoa, pessoa_id, consentimento_id, foto_documento, foto_rosto,
+             rosto_presencial, cpf_cadastro, cpf_cadastro_valido, cpf_documento,
+             cpf_ocr_status, cpf_confere, resultado_facial, distancia_facial, motor, enviado_por)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (casa_id_atual(), tipo_pessoa, pessoa['id'], consentimento_id, foto_documento,
+          foto_rosto, 1 if presencial else 0, pessoa.get('cpf'),
+          analise['cpf_cadastro_valido'], analise['cpf_documento'], analise['cpf_ocr_status'],
+          analise['cpf_confere'], analise['resultado_facial'], analise['distancia_facial'],
+          analise['motor'], session.get('usuario_id')))
+    verificacao_id = cur.lastrowid
+    _registrar_acesso_identidade(conn, verificacao_id, 'enviar',
+                                 f"{tipo_pessoa}:{pessoa['id']} facial={analise['resultado_facial']}")
+    log.info('verificacao_identidade_enviada', extra={'gc_action': 'verificacao_enviar',
+             'gc_user_id': session.get('usuario_id'), 'gc_casa_id': casa_id_atual()})
+    return verificacao_id
+
+
+def _receber_envio(conn, tipo_pessoa, pessoa, consentido_por_nome, relacao, presencial):
+    """Valida e salva as duas fotos, registra o consentimento e cria a verificação.
+    Devolve (verificacao_id, None) ou (None, mensagem_de_erro)."""
+    arq_doc = request.files.get('foto_documento')
+    arq_rosto = request.files.get('foto_rosto')
+    if not arq_doc or not arq_doc.filename or not arq_rosto or not arq_rosto.filename:
+        return None, 'Envie a foto do documento e a foto do rosto.'
+    if request.form.get('aceite_termo') != 'sim':
+        return None, 'É preciso registrar o consentimento antes de enviar as fotos.'
+    if not consentido_por_nome or not relacao:
+        return None, 'Informe quem deu o consentimento e a relação com a pessoa.'
+    foto_documento = salvar_foto_identidade(arq_doc)
+    foto_rosto = salvar_foto_identidade(arq_rosto)
+    if not foto_documento or not foto_rosto:
+        _apagar_arquivos_identidade(foto_documento, foto_rosto)
+        return None, 'As fotos precisam ser imagens JPG, PNG ou WEBP.'
+
+    consentimento = _consentimento_ativo(conn, tipo_pessoa, pessoa['id'])
+    if consentimento:
+        consentimento_id = consentimento['id']
+    else:
+        consentimento_id = conn.execute('''
+            INSERT INTO consentimentos_biometria
+                (casa_id, tipo_pessoa, pessoa_id, consentido_por_nome, relacao,
+                 versao_termo, coletado_por)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (casa_id_atual(), tipo_pessoa, pessoa['id'], consentido_por_nome[:120],
+              relacao[:60], VERSAO_TERMO_BIOMETRIA, session.get('usuario_id'))).lastrowid
+    try:
+        verificacao_id = _criar_verificacao(conn, tipo_pessoa, pessoa, consentimento_id,
+                                            foto_documento, foto_rosto, presencial)
+    except Exception:
+        _apagar_arquivos_identidade(foto_documento, foto_rosto)
+        raise
+    return verificacao_id, None
+
+
+def _verificacoes_da_pessoa(conn, tipo_pessoa, pessoa_id):
+    return conn.execute(
+        'SELECT * FROM verificacoes_identidade WHERE casa_id = ? AND tipo_pessoa = ? '
+        'AND pessoa_id = ? ORDER BY id DESC',
+        (casa_id_atual(), tipo_pessoa, pessoa_id)).fetchall()
+
+
+def foto_rosto_paciente(conn, paciente_id):
+    """Verificação cujo rosto aparece no topo da ficha: a aprovada mais recente,
+    ou, se não houver, a pendente mais recente. Recusadas nunca aparecem."""
+    return conn.execute('''
+        SELECT id, status FROM verificacoes_identidade
+        WHERE casa_id = ? AND tipo_pessoa = 'paciente' AND pessoa_id = ?
+          AND status IN ('aprovado', 'pendente')
+        ORDER BY (status = 'aprovado') DESC, id DESC LIMIT 1
+    ''', (casa_id_atual(), paciente_id)).fetchone()
+
+
+def apagar_verificacoes_da_pessoa(conn, tipo_pessoa, pessoa_id):
+    for v in _verificacoes_da_pessoa(conn, tipo_pessoa, pessoa_id):
+        _apagar_arquivos_identidade(v['foto_documento'], v['foto_rosto'])
+        _registrar_acesso_identidade(conn, v['id'], 'excluir', 'exclusao_da_pessoa')
+    conn.execute('DELETE FROM verificacoes_identidade WHERE casa_id = ? AND tipo_pessoa = ? '
+                 'AND pessoa_id = ?', (casa_id_atual(), tipo_pessoa, pessoa_id))
+    conn.execute('UPDATE consentimentos_biometria SET revogado_em = datetime(\'now\', \'localtime\') '
+                 'WHERE casa_id = ? AND tipo_pessoa = ? AND pessoa_id = ? AND revogado_em IS NULL',
+                 (casa_id_atual(), tipo_pessoa, pessoa_id))
+
+
+@app.route('/repositorio')
+@login_obrigatorio
+@apenas_admin
+def repositorio():
+    filtro_status = request.args.get('status', 'pendente')
+    if filtro_status not in ('pendente', 'aprovado', 'recusado', 'todos'):
+        filtro_status = 'pendente'
+    filtro_tipo = request.args.get('tipo', '')
+    if filtro_tipo not in ('paciente', 'responsavel'):
+        filtro_tipo = ''
+    sql = '''
+        SELECT v.*, COALESCE(p.nome, u.nome) AS pessoa_nome,
+               pv.nome AS idoso_do_responsavel
+        FROM verificacoes_identidade v
+        LEFT JOIN pacientes p ON v.tipo_pessoa = 'paciente' AND p.id = v.pessoa_id
+        LEFT JOIN usuarios u ON v.tipo_pessoa = 'responsavel' AND u.id = v.pessoa_id
+        LEFT JOIN pacientes pv ON pv.id = u.paciente_id
+        WHERE v.casa_id = ?
+    '''
+    params = [casa_id_atual()]
+    if filtro_status != 'todos':
+        sql += ' AND v.status = ?'
+        params.append(filtro_status)
+    if filtro_tipo:
+        sql += ' AND v.tipo_pessoa = ?'
+        params.append(filtro_tipo)
+    sql += ' ORDER BY v.id DESC'
+    with get_db() as conn:
+        verificacoes = conn.execute(sql, params).fetchall()
+        contagem = {r['status']: r['total'] for r in conn.execute(
+            'SELECT status, COUNT(*) AS total FROM verificacoes_identidade '
+            'WHERE casa_id = ? GROUP BY status', (casa_id_atual(),))}
+        pacientes = conn.execute(
+            'SELECT id, nome, contato_emergencia_nome, contato_emergencia_parentesco '
+            'FROM pacientes WHERE casa_id = ? AND ativo = 1 ORDER BY nome',
+            (casa_id_atual(),)).fetchall()
+        responsaveis = conn.execute(
+            "SELECT u.id, u.nome, p.nome AS paciente_nome FROM usuarios u "
+            "LEFT JOIN pacientes p ON p.id = u.paciente_id "
+            "WHERE u.casa_id = ? AND u.perfil = 'responsavel' ORDER BY u.nome",
+            (casa_id_atual(),)).fetchall()
+    return render_template(
+        'repositorio.html', verificacoes=verificacoes, contagem=contagem,
+        filtro_status=filtro_status, filtro_tipo=filtro_tipo,
+        pacientes=pacientes, responsaveis=responsaveis,
+        motor_facial_ok=vid.motor_facial().disponivel(),
+        motor_ocr_ok=vid.motor_ocr().disponivel(),
+        pre_tipo=request.args.get('novo_tipo', ''), pre_id=request.args.get('novo_id', ''))
+
+
+@app.route('/repositorio/nova', methods=['POST'])
+@login_obrigatorio
+@apenas_admin
+def repositorio_nova():
+    # Campo único "pessoa" no formato "paciente:12" ou "responsavel:7".
+    tipo_pessoa, _, id_texto = (request.form.get('pessoa') or '').partition(':')
+    pessoa_id = int(id_texto) if id_texto.isdigit() else None
+    with get_db() as conn:
+        pessoa = _pessoa_da_casa(conn, tipo_pessoa, pessoa_id) if pessoa_id else None
+        if not pessoa:
+            flash('Escolha um idoso ou responsável desta casa.', 'erro')
+            return redirect(url_for('repositorio'))
+        verificacao_id, erro = _receber_envio(
+            conn, tipo_pessoa, pessoa,
+            (request.form.get('consentido_por_nome') or '').strip(),
+            (request.form.get('relacao') or '').strip(),
+            presencial=request.form.get('rosto_presencial') == 'sim')
+    if erro:
+        flash(erro, 'erro')
+        return redirect(url_for('repositorio'))
+    flash('Fotos recebidas. Confira a análise e decida.', 'sucesso')
+    return redirect(url_for('repositorio_detalhe', verificacao_id=verificacao_id))
+
+
+@app.route('/repositorio/<int:verificacao_id>')
+@login_obrigatorio
+@apenas_admin
+def repositorio_detalhe(verificacao_id):
+    with get_db() as conn:
+        v = conn.execute('SELECT * FROM verificacoes_identidade WHERE id = ? AND casa_id = ?',
+                         (verificacao_id, casa_id_atual())).fetchone()
+        if not v:
+            flash('Verificação não encontrada.', 'erro')
+            return redirect(url_for('repositorio'))
+        pessoa = _pessoa_da_casa(conn, v['tipo_pessoa'], v['pessoa_id']) or {}
+        consentimento = conn.execute(
+            'SELECT c.*, u.nome AS coletado_por_nome FROM consentimentos_biometria c '
+            'LEFT JOIN usuarios u ON u.id = c.coletado_por WHERE c.id = ?',
+            (v['consentimento_id'],)).fetchone()
+        nomes = {r['id']: r['nome'] for r in conn.execute(
+            'SELECT id, nome FROM usuarios WHERE id IN (?, ?)',
+            (v['enviado_por'], v['revisado_por']))}
+        acessos = conn.execute(
+            'SELECT a.*, u.nome AS usuario_nome FROM acessos_identidade a '
+            'LEFT JOIN usuarios u ON u.id = a.usuario_id '
+            'WHERE a.verificacao_id = ? AND a.casa_id = ? ORDER BY a.id DESC LIMIT 30',
+            (verificacao_id, casa_id_atual())).fetchall()
+        _registrar_acesso_identidade(conn, verificacao_id, 'abrir_detalhe')
+    return render_template('repositorio_detalhe.html', v=v, pessoa=pessoa,
+                           consentimento=consentimento, nomes=nomes, acessos=acessos,
+                           atencao=vid.precisa_atencao(dict(v)))
+
+
+@app.route('/repositorio/<int:verificacao_id>/decidir', methods=['POST'])
+@login_obrigatorio
+@apenas_admin
+def repositorio_decidir(verificacao_id):
+    decisao = request.form.get('decisao')
+    motivo = (request.form.get('motivo') or '').strip()[:500]
+    if decisao not in ('aprovado', 'recusado'):
+        flash('Escolha aprovar ou recusar.', 'erro')
+        return redirect(url_for('repositorio_detalhe', verificacao_id=verificacao_id))
+    with get_db() as conn:
+        v = conn.execute('SELECT * FROM verificacoes_identidade WHERE id = ? AND casa_id = ?',
+                         (verificacao_id, casa_id_atual())).fetchone()
+        if not v:
+            flash('Verificação não encontrada.', 'erro')
+            return redirect(url_for('repositorio'))
+        if not motivo and (decisao == 'recusado' or vid.precisa_atencao(dict(v))):
+            flash('Escreva o motivo: ele é obrigatório para recusar e para aprovar '
+                  'quando a análise automática apontou divergência.', 'erro')
+            return redirect(url_for('repositorio_detalhe', verificacao_id=verificacao_id))
+        conn.execute('''
+            UPDATE verificacoes_identidade
+            SET status = ?, motivo = ?, revisado_por = ?, revisado_em = datetime('now', 'localtime')
+            WHERE id = ?
+        ''', (decisao, motivo or None, session.get('usuario_id'), verificacao_id))
+        _registrar_acesso_identidade(conn, verificacao_id, decisao, motivo or None)
+    log.info('verificacao_identidade_decidida', extra={'gc_action': 'verificacao_decidir',
+             'gc_user_id': session.get('usuario_id'), 'gc_decisao': decisao})
+    flash('Verificação aprovada.' if decisao == 'aprovado' else 'Verificação recusada.', 'sucesso')
+    return redirect(url_for('repositorio'))
+
+
+@app.route('/repositorio/<int:verificacao_id>/excluir', methods=['POST'])
+@login_obrigatorio
+@apenas_admin
+def repositorio_excluir(verificacao_id):
+    with get_db() as conn:
+        v = conn.execute('SELECT * FROM verificacoes_identidade WHERE id = ? AND casa_id = ?',
+                         (verificacao_id, casa_id_atual())).fetchone()
+        if v:
+            conn.execute('DELETE FROM verificacoes_identidade WHERE id = ?', (verificacao_id,))
+            _apagar_arquivos_identidade(v['foto_documento'], v['foto_rosto'])
+            _registrar_acesso_identidade(conn, verificacao_id, 'excluir')
+            flash('Fotos e verificação excluídas.', 'sucesso')
+    return redirect(url_for('repositorio'))
+
+
+@app.route('/identidade/arquivo/<int:verificacao_id>/<tipo>')
+@login_obrigatorio
+def servir_identidade(verificacao_id, tipo):
+    """Única porta de saída das fotos. Regras:
+    - admin da casa: documento e rosto de qualquer pessoa da casa;
+    - enfermeiro da casa: só o rosto de idosos (para a ficha);
+    - responsável: só as próprias fotos.
+    Toda abertura fica registrada em acessos_identidade."""
+    if tipo not in ('documento', 'rosto'):
+        return 'Não encontrado.', 404
+    perfil = session.get('usuario_perfil')
+    with get_db() as conn:
+        v = conn.execute('SELECT * FROM verificacoes_identidade WHERE id = ? AND casa_id = ?',
+                         (verificacao_id, casa_id_atual())).fetchone()
+        permitido = False
+        if v:
+            if perfil == 'admin':
+                permitido = True
+            elif perfil == 'enfermeiro':
+                permitido = tipo == 'rosto' and v['tipo_pessoa'] == 'paciente' \
+                    and v['status'] != 'recusado'
+            elif perfil == 'responsavel':
+                permitido = v['tipo_pessoa'] == 'responsavel' \
+                    and v['pessoa_id'] == session.get('usuario_id')
+        if not permitido:
+            log.warning('acesso_negado_identidade', extra={'gc_action': 'servir_identidade',
+                        'gc_user_id': session.get('usuario_id')})
+            if v:
+                _registrar_acesso_identidade(conn, verificacao_id, 'negado', tipo)
+            return 'Acesso negado.', 403
+        _registrar_acesso_identidade(conn, verificacao_id, 'ver_' + tipo)
+        nome = v['foto_documento'] if tipo == 'documento' else v['foto_rosto']
+    resposta = send_from_directory(IDENTIDADE_FOLDER, nome)
+    resposta.headers['Cache-Control'] = 'private, no-store'
+    return resposta
+
+
+@app.route('/responsavel/verificacao', methods=['GET', 'POST'])
+@login_obrigatorio
+def verificacao_responsavel():
+    """O responsável envia o próprio documento e uma selfie. Fica pendente até o admin decidir."""
+    if session.get('usuario_perfil') != 'responsavel':
+        flash('Acesso não autorizado.', 'erro')
+        return redirect(url_for('index'))
+    with get_db() as conn:
+        pessoa = _pessoa_da_casa(conn, 'responsavel', session['usuario_id'])
+        if not pessoa:
+            return redirect(url_for('logout'))
+        if request.method == 'POST':
+            ja_pendente = conn.execute(
+                "SELECT 1 FROM verificacoes_identidade WHERE casa_id = ? AND "
+                "tipo_pessoa = 'responsavel' AND pessoa_id = ? AND status = 'pendente'",
+                (casa_id_atual(), pessoa['id'])).fetchone()
+            if ja_pendente:
+                flash('Você já tem um envio aguardando a análise da casa.', 'erro')
+                return redirect(url_for('verificacao_responsavel'))
+            _, erro = _receber_envio(conn, 'responsavel', pessoa, pessoa['nome'], 'próprio',
+                                     presencial=False)
+            if erro:
+                flash(erro, 'erro')
+            else:
+                flash('Fotos enviadas. A casa vai conferir e avisar o resultado aqui.', 'sucesso')
+            return redirect(url_for('verificacao_responsavel'))
+        verificacoes = _verificacoes_da_pessoa(conn, 'responsavel', pessoa['id'])
+    return render_template('responsavel_verificacao.html', verificacoes=verificacoes)
 
 
 # ============================================================================

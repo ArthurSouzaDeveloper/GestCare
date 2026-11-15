@@ -39,6 +39,9 @@
             </div>
           </a>
           <div style="display:flex;align-items:center;gap:14px">
+            <a href="{{ url_for('verificacao_responsavel') }}" class="sidebar-item" style="width:auto;color:rgba(255,255,255,.85);padding:8px 10px">
+              <i class="ti ti-id" aria-hidden="true"></i> Identidade
+            </a>
             <a href="{{ url_for('logout') }}" class="sidebar-item" style="width:auto;color:rgba(255,255,255,.85);padding:8px 10px">
               <i class="ti ti-logout" aria-hidden="true"></i> Sair
             </a>
@@ -78,6 +81,9 @@
           {% if perfil == 'admin' %}
           <a href="{{ url_for('listar_usuarios') }}" class="sidebar-item {% if request.endpoint == 'listar_usuarios' %}ativo{% endif %}">
             <i class="ti ti-user-cog" aria-hidden="true"></i> Usuários
+          </a>
+          <a href="{{ url_for('repositorio') }}" class="sidebar-item {% if request.endpoint in ('repositorio', 'repositorio_detalhe') %}ativo{% endif %}">
+            <i class="ti ti-id" aria-hidden="true"></i> Repositório
           </a>
           {% endif %}
         {% endif %}
@@ -144,9 +150,13 @@
 
 {% if perfil == 'responsavel' %}
   <nav class="nav-bottom">
-    <a href="{{ url_for('painel_responsavel') }}" class="nav-bottom-item ativo">
+    <a href="{{ url_for('painel_responsavel') }}" class="nav-bottom-item {% if request.endpoint == 'painel_responsavel' %}ativo{% endif %}">
       <span class="nav-bottom-icon"><i class="ti ti-clipboard-list" aria-hidden="true"></i></span>
       <span>Ficha</span>
+    </a>
+    <a href="{{ url_for('verificacao_responsavel') }}" class="nav-bottom-item {% if request.endpoint == 'verificacao_responsavel' %}ativo{% endif %}">
+      <span class="nav-bottom-icon"><i class="ti ti-id" aria-hidden="true"></i></span>
+      <span>Identidade</span>
     </a>
     <a href="{{ url_for('logout') }}" class="nav-bottom-item">
       <span class="nav-bottom-icon"><i class="ti ti-logout" aria-hidden="true"></i></span>
@@ -182,6 +192,11 @@
        class="nav-bottom-item {% if request.endpoint == 'listar_usuarios' %}ativo{% endif %}">
       <span class="nav-bottom-icon"><i class="ti ti-user-cog" aria-hidden="true"></i></span>
       <span>Usuários</span>
+    </a>
+    <a href="{{ url_for('repositorio') }}"
+       class="nav-bottom-item {% if request.endpoint in ('repositorio', 'repositorio_detalhe') %}ativo{% endif %}">
+      <span class="nav-bottom-icon"><i class="ti ti-id" aria-hidden="true"></i></span>
+      <span>Repositório</span>
     </a>
     {% else %}
     <a href="{{ url_for('agenda_diaria') }}"

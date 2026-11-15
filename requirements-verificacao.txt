@@ -1,0 +1,17 @@
+# Opcional: análise automática do Repositório de identidade.
+# Sem estes pacotes o sistema funciona normalmente e as verificações vão
+# direto para revisão manual do administrador.
+#
+#   pip install -r requirements-verificacao.txt
+#
+# Tudo roda localmente; nenhum pacote envia imagem para fora.
+# Tamanho aproximado instalado: ~350 MB (modelos do dlib ~130 MB, onnxruntime e OpenCV).
+
+numpy>=1.26
+pillow>=10.0
+# dlib já compilado (evita precisar de CMake/Visual Studio no Windows)
+dlib-bin>=19.24
+# Pesos do modelo de reconhecimento facial do dlib
+face-recognition-models==0.3.0
+# OCR local (modelos PaddleOCR em ONNX, incluídos no pacote) para ler o CPF do documento
+rapidocr-onnxruntime>=1.2
