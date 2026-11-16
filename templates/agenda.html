@@ -62,7 +62,7 @@
             {% if item.via_administracao %}<span class="medicamento-via">{{ item.via_administracao }}</span>{% endif %}
           </div>
           {% if item.instrucoes %}
-          <div class="agenda-instrucoes">{{ item.instrucoes }}</div>
+          <div class="agenda-instrucoes" title="{{ item.instrucoes }}">{{ item.instrucoes }}</div>
           {% endif %}
         </div>
         <div class="agenda-acoes">

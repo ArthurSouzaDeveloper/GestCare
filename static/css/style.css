@@ -1136,46 +1136,53 @@ button, input, select, textarea { font-family: inherit; }
 .modal-fechar { background: var(--cor-fundo); border: none; font-size: 1.2rem; cursor: pointer; color: var(--cor-texto-suave); width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 
 /* ── AGENDA ─────────────────────────────────────────────
-   Uma dose por linha, na altura de um item da lista de pacientes:
-   paciente e quarto, remédio + dose + via, instrução em texto menor
-   e as duas ações compactas (44px de toque). ─────────────────── */
-/* Celular: a hora vira um título curto em cima do grupo, para o
-   cartão usar a largura toda. A partir de 640px volta para a coluna. */
-.agenda-horario { display: flex; flex-direction: column; gap: .4rem; margin-bottom: .9rem; }
+   Cada dose é um cartão quadrado numa grade (2 por linha no celular,
+   5 a 6 no computador): paciente e quarto, remédio + dose + via, e o
+   botão Administrado embaixo. Ver paciente é um botão de ícone de 44px
+   no canto. O quadrado cresce se o texto precisar de mais espaço. ── */
+.agenda-horario { display: flex; flex-direction: column; gap: .4rem; margin-bottom: 1rem; }
 .agenda-horario-titulo {
-  flex-shrink: 0;
   display: flex; align-items: center; gap: .35rem;
   font-weight: var(--peso-dado);
   font-size: var(--txt-md);
   color: var(--texto-secundario);
   font-variant-numeric: tabular-nums;
 }
-.agenda-lista { flex: 1; display: flex; flex-direction: column; gap: .5rem; min-width: 0; }
+.agenda-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(165px, 1fr)); gap: .6rem; min-width: 0; }
 
-/* Celular: texto em cima, ações numa fileira curta embaixo */
 .agenda-item {
-  display: flex;
-  flex-direction: column;
-  gap: .5rem;
-  padding: .65rem .85rem;
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 1fr auto;
+  gap: .3rem;
+  padding: .6rem .65rem;
   background: var(--cor-card);
   border: 1px solid var(--cor-borda);
-  border-left: 4px solid var(--cor-primaria);
+  border-top: 4px solid var(--cor-primaria);
   border-radius: var(--raio-md);
+  min-width: 0;
 }
-.agenda-texto { display: flex; flex-direction: column; gap: .15rem; min-width: 0; flex: 1; }
-.agenda-linha { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: .5rem; row-gap: .1rem; min-width: 0; }
-.agenda-paciente    { font-weight: var(--peso-titulo); color: var(--texto-primario); font-size: var(--txt-base); }
-.agenda-quarto      { font-size: .82rem; color: var(--cor-texto-suave); }
-.agenda-medicamento { font-weight: var(--peso-enfase); font-size: var(--txt-md); }
-.agenda-dosagem     { font-size: .85rem; color: var(--cor-texto-suave); }
-.agenda-linha .medicamento-via { margin-top: 0; align-self: center; }
-.agenda-instrucoes  { font-size: .8rem; color: var(--cor-texto-suave); line-height: 1.35; }
-.agenda-acoes { display: flex; gap: .5rem; align-items: center; }
-.agenda-acoes form { flex: 1; display: flex; }
+/* Garante o quadrado: a largura vira altura mínima; se o texto pedir mais, o cartão cresce */
+.agenda-item::before { content: ""; grid-area: 1 / 1 / -1 / 2; padding-bottom: 100%; pointer-events: none; }
+.agenda-texto { grid-area: 1 / 1; display: flex; flex-direction: column; gap: .1rem; min-width: 0; flex: 1; }
+.agenda-texto .agenda-linha:first-child { padding-right: calc(var(--alvo-toque) - .1rem); }
+.agenda-linha { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: .4rem; row-gap: .1rem; min-width: 0; }
+.agenda-texto .agenda-linha:nth-child(2) { margin-top: .25rem; }
+.agenda-paciente    { font-weight: var(--peso-titulo); color: var(--texto-primario); font-size: .95rem; line-height: 1.2; overflow-wrap: anywhere; }
+.agenda-quarto      { font-size: .8rem; color: var(--cor-texto-suave); }
+.agenda-medicamento { font-weight: var(--peso-enfase); font-size: .95rem; overflow-wrap: anywhere; }
+.agenda-dosagem     { font-size: .82rem; color: var(--cor-texto-suave); }
+.agenda-linha .medicamento-via { margin-top: 0; align-self: center; padding: 1px var(--esp-2); }
+.agenda-instrucoes  { font-size: .78rem; color: var(--cor-texto-suave); line-height: 1.3; margin-top: .1rem;
+  display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+/* As duas ações se soltam do bloco: o botão do formulário fica no pé do
+   cartão e o ícone no canto superior direito. */
+.agenda-acoes { display: contents; }
+.agenda-acoes form { grid-area: 2 / 1; display: flex; }
 .agenda-acoes .botao { min-height: var(--alvo-toque); }
 .agenda-administrar { flex: 1; }
-.agenda-ver { width: var(--alvo-toque); padding: 0; flex-shrink: 0; }
+.agenda-ver { position: absolute; top: .4rem; right: .4rem; width: var(--alvo-toque); padding: 0; }
 .agenda-ver-texto { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* ── BUSCA ──────────────────────────────────────────────── */
@@ -1431,13 +1438,6 @@ button, input, select, textarea { font-family: inherit; }
   .medicamento-acoes { flex-direction: row; flex-wrap: wrap; }
   .medicamento-acoes .botao { width: auto; }
 
-  /* Agenda: hora em coluna à esquerda, tudo numa linha só, ações à direita */
-  .agenda-horario { flex-direction: row; gap: .75rem; margin-bottom: .75rem; }
-  .agenda-horario-titulo { display: block; width: 56px; padding-top: .7rem; }
-  .agenda-item { flex-direction: row; align-items: center; gap: 1rem; }
-  .agenda-acoes { flex-shrink: 0; }
-  .agenda-acoes form { flex: none; }
-  .agenda-administrar { flex: none; }
 
   /* Formulários: 2 colunas */
   .form-linha   { grid-template-columns: 1fr 1fr;     gap: 1rem; }
