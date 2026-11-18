@@ -1,0 +1,814 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GestCare: Estruturas de Dados no PI</title>
+<meta name="description" content="Documento técnico do Projeto Integrador GestCare: visão geral, estado atual e como estruturas de dados (filas, pilhas, listas, ordenação, busca, hash, heaps, árvores e grafos) embasam as decisões do sistema.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231f4e8c'/%3E%3Ctext x='16' y='22' font-family='Arial' font-weight='700' font-size='16' fill='white' text-anchor='middle'%3EGC%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script>
+  // Aplica tema e modo projeção antes de desenhar a página (evita "piscar").
+  try {
+    var t = localStorage.getItem('gc-tema'); if (t) document.documentElement.dataset.theme = t;
+    if (localStorage.getItem('gc-projecao') === '1') document.documentElement.classList.add('projecao');
+  } catch (e) {}
+</script>
+</head>
+<body>
+
+<header class="topo">
+  <div class="topo-in">
+    <a class="marca" href="#inicio"><span class="marca-logo" aria-hidden="true">GC</span> GestCare <span class="nome-longo" style="font-weight:400;color:var(--ink-3)">· PI + ED</span></a>
+    <nav class="menu" aria-label="Seções">
+      <a href="#visao">Visão geral</a>
+      <a href="#arquitetura">Arquitetura</a>
+      <a href="#estado">Estado atual</a>
+      <a href="#estruturas">Estruturas</a>
+      <a href="#resumo">Resumo</a>
+      <a href="#disciplina">Disciplina</a>
+      <a href="#proximos">Próximos</a>
+    </nav>
+    <div class="acoes">
+      <button class="btn-icone btn-projecao" id="btn-projecao" aria-pressed="false" title="Aumenta as letras para projetar em sala">Modo projeção</button>
+      <button class="btn-icone" id="btn-tema" title="Alternar tema claro/escuro">Tema</button>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- ===================================================== CAPA -->
+<section class="capa" id="inicio">
+  <p class="rotulo">Projeto Integrador · Estruturas de Dados · ADC2 (P2)</p>
+  <h1>GestCare: gestão digital para lares de idosos</h1>
+  <p class="lead">Este site é o documento técnico do nosso Projeto Integrador. Ele explica o problema que o GestCare resolve, o que já está funcionando e, principalmente, <strong>onde e por que cada estrutura de dados aparece no sistema</strong>, com trechos do código real e a justificativa de cada escolha.</p>
+  <div class="ficha">
+    <!-- EDITAR: coloque aqui os nomes do grupo, a turma e o professor -->
+    <span><b>Grupo:</b> <span id="integrantes">Arthur de Souza, Daniel Caldas, Enzo Alves, Gabriel Martinelli, João Victor Furlan, Johnatan Grabovei e Lucas Bovolini</span></span>
+    <span><b>Disciplinas:</b> Estruturas de Dados · Projeto Integrador</span>
+    <span><b>Código:</b> <a href="https://github.com/ArthurSouzaDeveloper/GestCare">github.com/ArthurSouzaDeveloper/GestCare</a></span>
+  </div>
+  <div class="numeros" aria-label="O projeto em números">
+    <div class="numero"><b>~3.700</b><span>linhas no back-end principal (app.py)</span></div>
+    <div class="numero"><b>65</b><span>rotas (telas e ações) no servidor</span></div>
+    <div class="numero"><b>17</b><span>tabelas no banco SQLite</span></div>
+    <div class="numero"><b>76</b><span>testes automatizados</span></div>
+    <div class="numero"><b>4</b><span>perfis de acesso</span></div>
+  </div>
+</section>
+
+<!-- ===================================================== VISÃO GERAL -->
+<section id="visao">
+  <p class="rotulo">1 · Visão geral</p>
+  <h2>O problema e a solução</h2>
+  <p>Instituições de longa permanência para idosos (ILPIs, lares e casas de repouso) cuidam de pessoas que tomam muitos remédios em horários fixos, fazem exames com frequência e têm famílias que querem saber como foi o dia. Na maioria das casas, isso ainda fica em papel, cadernos de plantão e planilhas soltas.</p>
+
+  <div class="problema-solucao">
+    <div class="cartao">
+      <h4>O problema</h4>
+      <ul>
+        <li>Dose de remédio esquecida ou dada duas vezes porque o registro ficou no caderno do outro turno.</li>
+        <li>Fim de tratamento com antibiótico que ninguém percebe a tempo.</li>
+        <li>Prontuário espalhado: exames numa pasta, evolução médica em outra, dieta num papel na cozinha.</li>
+        <li>Família liga para perguntar coisas simples, e a equipe para o que está fazendo para atender.</li>
+        <li>Dados sensíveis de saúde sem controle de quem viu o quê.</li>
+      </ul>
+    </div>
+    <div class="cartao">
+      <h4>A solução de engenharia</h4>
+      <ul>
+        <li>Um sistema web (PWA) que a equipe usa no celular durante o plantão.</li>
+        <li><strong>Agenda de doses</strong> com registro de quem deu cada remédio e tela <strong>Hoje</strong>, que mostra só o que está atrasado ou vem a seguir.</li>
+        <li><strong>Alertas automáticos</strong> (notificação push) quando um antibiótico está terminando.</li>
+        <li><strong>Prontuário único</strong> por residente: condições, remédios, exames com PDF, evoluções, dieta, ficha psicológica, visitas.</li>
+        <li><strong>Portal da família</strong>, só leitura, liberado depois que a casa confere a identidade do responsável.</li>
+        <li><strong>Várias casas</strong> no mesmo sistema, com dados separados e acesso por perfil.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Quem usa</h3>
+  <div class="grade">
+    <div class="cartao"><h4>Enfermagem / cuidadores</h4><p>Registram doses, veem a agenda do dia e as pendências na tela Hoje, consultam o prontuário.</p></div>
+    <div class="cartao"><h4>Administração da casa</h4><p>Cadastra residentes e equipe, aprova a identidade dos responsáveis, acompanha relatórios.</p></div>
+    <div class="cartao"><h4>Responsável (família)</h4><p>Vê remédios do dia, saúde, exames com recado da casa e visitas do seu idoso. Não altera nada.</p></div>
+    <div class="cartao"><h4>Superadmin</h4><p>Cadastra e gerencia as casas (instituições) que usam o sistema.</p></div>
+  </div>
+</section>
+
+<!-- ===================================================== ARQUITETURA -->
+<section id="arquitetura">
+  <p class="rotulo">2 · Arquitetura</p>
+  <h2>Como os dados fluem no sistema</h2>
+  <p>O GestCare é uma aplicação <strong>Python + Flask</strong> com banco <strong>SQLite</strong>, páginas HTML geradas no servidor (Jinja2) e um pouco de JavaScript no navegador. Roda como serviço em um servidor Linux. Um agendador em segundo plano (APScheduler) confere os antibióticos a cada 30 minutos e dispara notificações push para o celular da equipe.</p>
+
+  <div class="diagrama" role="img" aria-label="Diagrama: navegador e celular falam com o servidor Flask; o servidor usa sessão, regras de acesso e o banco SQLite com índices B-tree; um agendador lê o banco e envia notificações push.">
+    <svg viewBox="0 0 860 330" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="seta" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+      <!-- clientes -->
+      <rect class="cx" x="20" y="40" width="170" height="70" rx="10"/>
+      <text class="txt" x="105" y="70" text-anchor="middle">Equipe (celular, PWA)</text>
+      <text class="txt2" x="105" y="90" text-anchor="middle">agenda, Hoje, prontuário</text>
+      <rect class="cx" x="20" y="140" width="170" height="70" rx="10"/>
+      <text class="txt" x="105" y="170" text-anchor="middle">Família (portal)</text>
+      <text class="txt2" x="105" y="190" text-anchor="middle">só leitura</text>
+      <rect class="cx" x="20" y="240" width="170" height="60" rx="10"/>
+      <text class="txt" x="105" y="266" text-anchor="middle">Service worker</text>
+      <text class="txt2" x="105" y="284" text-anchor="middle">cache: URL → resposta</text>
+      <!-- servidor -->
+      <rect class="cx-forte" x="260" y="30" width="320" height="270" rx="12"/>
+      <text class="txt" x="420" y="56" text-anchor="middle">Servidor Flask (app.py)</text>
+      <rect class="cx" x="280" y="72" width="135" height="58" rx="8"/>
+      <text class="txt" x="347" y="96" text-anchor="middle">Sessão</text>
+      <text class="txt2" x="347" y="114" text-anchor="middle">dicionário assinado</text>
+      <rect class="cx" x="425" y="72" width="135" height="58" rx="8"/>
+      <text class="txt" x="492" y="96" text-anchor="middle">Regras de acesso</text>
+      <text class="txt2" x="492" y="114" text-anchor="middle">árvore de perfis</text>
+      <rect class="cx" x="280" y="142" width="135" height="58" rx="8"/>
+      <text class="txt" x="347" y="166" text-anchor="middle">Rate limit</text>
+      <text class="txt2" x="347" y="184" text-anchor="middle">hash IP → tentativas</text>
+      <rect class="cx" x="425" y="142" width="135" height="58" rx="8"/>
+      <text class="txt" x="492" y="166" text-anchor="middle">Agenda / Hoje</text>
+      <text class="txt2" x="492" y="184" text-anchor="middle">agrupar + ordenar</text>
+      <rect class="cx" x="280" y="212" width="280" height="70" rx="8"/>
+      <text class="txt" x="420" y="238" text-anchor="middle">Agendador (APScheduler, a cada 30 min)</text>
+      <text class="txt2" x="420" y="258" text-anchor="middle">antibióticos terminando → notificação push</text>
+      <!-- banco -->
+      <rect class="cx" x="650" y="60" width="190" height="120" rx="12"/>
+      <text class="txt" x="745" y="90" text-anchor="middle">SQLite (modo WAL)</text>
+      <text class="txt2" x="745" y="112" text-anchor="middle">17 tabelas</text>
+      <text class="txt2" x="745" y="130" text-anchor="middle">índices em árvore B</text>
+      <text class="txt2" x="745" y="148" text-anchor="middle">log de escrita (WAL)</text>
+      <rect class="cx" x="650" y="210" width="190" height="80" rx="12"/>
+      <text class="txt" x="745" y="240" text-anchor="middle">Serviço de push</text>
+      <text class="txt2" x="745" y="260" text-anchor="middle">navegador do celular</text>
+      <!-- ligações -->
+      <path class="lig" d="M190 75 H258" marker-end="url(#a)"/>
+      <path class="lig" d="M190 175 H258" marker-end="url(#a)"/>
+      <path class="lig-trac" d="M105 240 V212"/>
+      <path class="lig" d="M582 120 H648" marker-end="url(#a)"/>
+      <path class="lig" d="M562 250 H648" marker-end="url(#a)"/>
+      <path class="lig-trac" d="M745 290 V315 H105 V302" marker-end="url(#a)"/>
+    </svg>
+    <p class="diagrama-nota">Cada caixa traz a estrutura de dados principal daquela parte. A linha tracejada é a notificação chegando ao celular.</p>
+  </div>
+
+  <h3>Modelo de dados (resumo)</h3>
+  <p>O banco é relacional e tem a forma de uma <strong>árvore de posse</strong>: cada casa tem seus usuários e residentes, e cada residente tem seus remédios, exames, visitas e evoluções. Toda consulta parte da casa do usuário logado (<code>casa_id</code>), o que separa os dados de uma instituição das outras.</p>
+  <div class="tabela-wrap">
+    <table>
+      <thead><tr><th>Nível</th><th>Tabelas</th><th>Ligação</th></tr></thead>
+      <tbody>
+        <tr><td>Raiz</td><td class="mono">casas</td><td>uma linha por instituição</td></tr>
+        <tr><td>Pessoas</td><td class="mono">usuarios, pacientes</td><td><code>casa_id</code> aponta para a casa</td></tr>
+        <tr><td>Prontuário</td><td class="mono">condicoes, medicamentos, exames, visitas, evolucoes_medicas, ficha_psicologica, comorbidades_dieta, profissionais_consultados</td><td><code>paciente_id</code> aponta para o residente</td></tr>
+        <tr><td>Remédios</td><td class="mono">horarios_medicamento, doses_administradas</td><td><code>medicamento_id</code> aponta para o remédio</td></tr>
+        <tr><td>Segurança</td><td class="mono">push_subscriptions, consentimentos_biometria, verificacoes_identidade, acessos_identidade</td><td>ligadas ao usuário ou à verificação</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ===================================================== ESTADO ATUAL -->
+<section id="estado">
+  <p class="rotulo">3 · Estado atual de desenvolvimento</p>
+  <h2>O que já funciona</h2>
+  <p>O sistema está em uso de teste em servidor próprio. As entregas abaixo já estão no código principal (branch <code>main</code>), cada uma revisada em um pull request com testes automatizados.</p>
+  <ul class="tempo">
+    <li><b>Base do sistema:</b> cadastro e prontuário do residente, medicamentos com horários, registro de doses, visitas, evoluções, dieta e ficha psicológica, login com senha protegida por bcrypt, várias casas no mesmo sistema.</li>
+    <li><b>PWA e notificações:</b> instalável no celular, com service worker e aviso push quando o antibiótico está terminando.</li>
+    <li><b>Segurança dos exames:</b> PDFs de exame saíram da pasta pública e só abrem para quem tem permissão; a sessão é conferida de novo a cada acesso.</li>
+    <li><b>Verificação de identidade:</b> foto do documento e do rosto do responsável, comparação facial e leitura do CPF feitas no próprio servidor; quem decide é o administrador da casa.</li>
+    <li><b>Usuários:</b> edição, exclusão reversível (lixeira) e restauração.</li>
+    <li><b>Novo visual e portal da família:</b> redesenho da interface, menu unificado e portal com Início, Saúde, Exames e Visitas.</li>
+    <li><b>Muitos residentes:</b> lista com busca, filtros e páginas de 25 feitas no servidor, busca rápida com a tecla <code>/</code>, índices no banco e modo WAL.</li>
+    <li><b>Tela Hoje e visões gerais:</b> o que está atrasado e o que vem a seguir; visões de exames, visitas, evoluções e medicamentos.</li>
+    <li><b>Agenda compacta:</b> doses do dia em cartões, agrupadas por horário.</li>
+  </ul>
+  <p>Os próximos passos estão na <a href="#proximos">seção 7</a>, porque vários deles são justamente as estruturas de dados que ainda são propostas.</p>
+</section>
+
+<!-- ===================================================== ESTRUTURAS DE DADOS -->
+<section id="estruturas">
+  <p class="rotulo">4 · Integração com Estruturas de Dados (foco principal)</p>
+  <h2>Onde cada estrutura aparece no GestCare</h2>
+  <p>Para cada cenário mostramos o trecho real do código (com arquivo e linha), a estrutura usada, o custo das operações e o que ganhamos e perdemos com a escolha. Fomos honestos: quando a estrutura ainda não está implementada, está marcada como <strong>proposta</strong> e aparece nos próximos passos.</p>
+  <div class="legenda">
+    <span><span class="tag feito">Implementado</span> já está no código</span>
+    <span><span class="tag parcial">Parcial</span> existe, mas dá para melhorar com outra estrutura</span>
+    <span><span class="tag proposta">Proposta</span> ainda não implementado; é próximo passo</span>
+    <span>Clique em cada cenário para abrir os detalhes.</span>
+  </div>
+
+  <!-- ------------------------------------------------ LINEARES -->
+  <div class="grupo-ed" id="lineares">
+    <h3><span class="num">4.1</span> Estruturas lineares: filas, pilhas e listas</h3>
+
+    <details class="caso" open>
+      <summary>
+        <span class="caso-titulo">Fila de tentativas de login (janela deslizante do rate limit)</span>
+        <span class="tag parcial">Parcial</span>
+        <span class="caso-sub">Fila FIFO de horários por IP para bloquear ataques de adivinhação de senha</span>
+      </summary>
+      <div class="caso-corpo">
+        <p><strong>Cenário.</strong> Para impedir que alguém tente milhares de senhas, cada endereço IP pode tentar entrar no máximo 10 vezes por minuto. O sistema guarda, para cada IP, os horários das últimas tentativas. As mais antigas "vencem" primeiro: é exatamente o comportamento de uma <strong>fila</strong> (primeiro a entrar, primeiro a sair).</p>
+        <figure class="codigo">
+          <figcaption><span>app.py, linhas 139 a 153</span><span>dicionário de listas</span></figcaption>
+<pre><code>_login_tentativas: dict = {}  <span class="c"># {ip: [timestamps]}</span>
+
+def _checar_rate_limit(ip: str, limite: int = 10, janela: int = 60) -&gt; bool:
+    <span class="c">"""Retorna True se o IP ainda está dentro do limite permitido."""</span>
+    agora = datetime.now().timestamp()
+    historico = [t for t in _login_tentativas.get(ip, []) if agora - t &lt; janela]
+    if len(historico) &gt;= limite:
+        _login_tentativas[ip] = historico
+        return False
+    historico.append(agora)
+    _login_tentativas[ip] = historico
+    <span class="c"># Limpeza periódica: remove IPs com histórico vazio para evitar crescimento infinito</span>
+    if len(_login_tentativas) &gt; 5000:
+        _login_tentativas.clear()
+    return True</code></pre>
+        </figure>
+        <p><strong>Análise.</strong> Hoje é um dicionário (tabela hash) cujo valor é uma lista. A busca do IP é O(1), mas a cada tentativa a lista inteira é <em>reconstruída</em> para descartar horários velhos: O(k), com k ≤ 10. Como k é pequeno e fixo, funciona bem.</p>
+        <p><strong>Proposta.</strong> Trocar a lista por uma <code>collections.deque</code>, que é uma fila de duas pontas implementada como lista duplamente encadeada de blocos. Removemos do começo só o que venceu (<code>popleft</code>, O(1)) e inserimos no fim (<code>append</code>, O(1)), sem alocar uma lista nova a cada login. O <code>maxlen=10</code> ainda limita a memória por IP.</p>
+        <div class="duas">
+          <div class="caixa ganha"><h4>Ganhamos</h4><ul><li>Inserção e remoção O(1) nas pontas.</li><li>Sem cópia da lista a cada tentativa (menos lixo para o coletor).</li><li>Memória limitada por IP com <code>maxlen</code>.</li></ul></div>
+          <div class="caixa perde"><h4>Abrimos mão</h4><ul><li>Acesso pelo meio da deque é O(n) (não precisamos).</li><li>O <code>clear()</code> com 5000 IPs apaga todo mundo de uma vez; o ideal seria expirar só os IPs parados.</li></ul></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="caso">
+      <summary>
+        <span class="caso-titulo">Fila de envio das notificações push</span>
+        <span class="tag proposta">Proposta</span>
+        <span class="caso-sub">Fila de processamento entre o agendador e o serviço de push</span>
+      </summary>
+      <div class="caso-corpo">
+        <p><strong>Cenário.</strong> A cada 30 minutos o agendador procura antibióticos que terminam em até 2 dias e manda um aviso para o celular de cada pessoa da equipe daquela casa. Hoje o envio é feito em sequência, dentro do próprio laço da tarefa:</p>
+        <figure class="codigo">
+          <figcaption><span>app.py, linhas 224 a 243 (trecho)</span><span>laço síncrono</span></figcaption>
+<pre><code>def enviar_push_para_equipe(casa_id, titulo, corpo, url='/'):
+    <span class="c">"""Envia uma notificação push para a equipe (enfermeiros/admin) de uma casa específica."""</span>
+    payload = json.dumps({'title': titulo, 'body': corpo, 'url': url})
+    with get_db() as conn:
+        inscricoes = conn.execute('''...''', (casa_id,)).fetchall()
+        for inscricao in inscricoes:
+            try:
+                webpush(subscription_info={...}, data=payload, ...)
+            except WebPushException as exc:
+                status = exc.response.status_code if exc.response is not None else None
+                if status in (404, 410):
+                    conn.execute('DELETE FROM push_subscriptions WHERE id = ?', (inscricao['id'],))</code></pre>
+        </figure>
+        <p><strong>Problema.</strong> Se o serviço de push de um celular demora, todos os outros avisos esperam, e uma falha temporária (sem ser 404/410) faz o aviso se perder.</p>
+        <p><strong>Proposta.</strong> Uma <strong>fila FIFO</strong> (<code>queue.Queue</code>, segura entre threads) entre quem gera o aviso e quem envia. O agendador só enfileira (O(1)) e um trabalhador separado retira e envia na ordem de chegada. Falhou por instabilidade? Volta para o fim da fila com um contador de tentativas. É o mesmo papel de um <em>buffer</em> de sensores IoT: absorve picos e desacopla o produtor do consumidor.</p>
+        <div class="duas">
+          <div class="caixa ganha"><h4>Ganhamos</h4><ul><li>O agendador termina rápido; o envio não trava a tarefa.</li><li>Ordem justa (FIFO) e nova tentativa em caso de falha.</li><li>Fila com tamanho máximo protege a memória.</li></ul></div>
+          <div class="caixa perde"><h4>Abrimos mão</h4><ul><li>Fila em memória some se o servidor reiniciar; para garantir, a fila teria de ficar numa tabela do banco.</li><li>Mais uma thread para cuidar.</li></ul></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="caso">
+      <summary>
+        <span class="caso-titulo">"Abertos recentemente" na busca rápida</span>
+        <span class="tag feito">Implementado</span>
+        <span class="caso-sub">Lista limitada com o mais recente no topo (comportamento de pilha / cache LRU)</span>
+      </summary>
+      <div class="caso-corpo">
+        <p><strong>Cenário.</strong> Quando a enfermeira aperta <code>/</code> sem digitar nada, aparecem os últimos 6 residentes que ela abriu. Cada ficha aberta vai para o <strong>topo</strong>; se já estava na lista, sai do meio e sobe; o sétimo cai do fundo.</p>
+        <figure class="codigo">
+          <figcaption><span>app.py, linhas 1949 a 1954</span><span>lista na sessão</span></figcaption>
+<pre><code>RECENTES_MAX = 6
+
+
+def _registrar_recente(paciente_id):
+    lista = [i for i in session.get('recentes', []) if i != paciente_id]
+    session['recentes'] = ([paciente_id] + lista)[:RECENTES_MAX]</code></pre>
+        </figure>
+        <p><strong>Estrutura.</strong> Empilhar no topo e descartar o fundo é uma <strong>pilha com capacidade limitada</strong>, e tirar do meio quem foi usado de novo é a política <strong>LRU</strong> (o menos usado recentemente sai). Na leitura, um dicionário <code>id → linha</code> devolve os residentes do banco <em>na ordem da pilha</em>, porque o SQL não garante essa ordem:</p>
+        <figure class="codigo">
+          <figcaption><span>app.py, linhas 1981 a 1984</span><span>hash para reordenar</span></figcaption>
+<pre><code>achados = {r['id']: r for r in conn.execute(
+    f'SELECT id, nome, quarto FROM pacientes '
+    f'WHERE ativo = 1 AND casa_id = ? AND id IN ({marcas})', [casa] + ids).fetchall()}
+linhas = [achados[i] for i in ids if i in achados]</code></pre>
+        </figure>
+        <div class="duas">
+          <div class="caixa ganha"><h4>Por que lista e não lista encadeada</h4><p>Com n = 6, refazer a lista custa 6 passos. Um vetor contíguo cabe numa linha de cache da CPU e ainda precisa ir para o cookie da sessão como JSON; uma lista encadeada traria ponteiros sem ganho real.</p></div>
+          <div class="caixa perde"><h4>Quando mudaria</h4><p>Se a lista crescesse para centenas de itens, usaríamos <code>OrderedDict</code> (tabela hash + lista duplamente encadeada): mover para o topo e remover do fundo ficam O(1).</p></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="caso">
+      <summary>
+        <span class="caso-titulo">Lixeira de usuários e "desfazer"</span>
+        <span class="tag parcial">Parcial</span>
+        <span class="caso-sub">Exclusão reversível hoje; pilha de ações para desfazer como próximo passo</span>
+      </summary>
+      <div class="caso-corpo">
+        <p><strong>Cenário.</strong> Apagar um usuário por engano não pode ser definitivo. Hoje a exclusão só marca a data em <code>excluido_em</code> e o usuário vai para a aba de excluídos, ordenada do mais recente para o mais antigo, de onde pode ser restaurado:</p>
+        <figure class="codigo">
+          <figcaption><span>app.py, linhas 1604 a 1606</span><span>lixeira ordenada por data</span></figcaption>
+<pre><code>  AND u.excluido_em IS {'NOT NULL' if ver_excluidos else 'NULL'}
+ORDER BY {'u.excluido_em DESC' if ver_excluidos else 'u.nome'}</code></pre>
+        </figure>
+        <p><strong>Leitura com ED.</strong> Ordenar a lixeira por <code>excluido_em DESC</code> já mostra a lixeira como uma <strong>pilha</strong>: o último que entrou aparece primeiro, como o "desfazer" de um editor de texto.</p>
+        <p><strong>Proposta.</strong> Um botão "Desfazer" logo após salvar ou excluir no prontuário, usando uma <strong>pilha de ações</strong> por sessão: cada alteração empilha <code>(tabela, id, valores antigos)</code>; desfazer é <code>pop()</code> e regravar os valores antigos, O(1). Uma segunda pilha guardaria o "refazer". O mesmo vale para a navegação: o botão Voltar do navegador já é uma pilha de páginas (History API).</p>
+        <div class="duas">
+          <div class="caixa ganha"><h4>Ganhamos</h4><ul><li>Push e pop O(1).</li><li>Ordem natural do desfazer (o último erro primeiro).</li></ul></div>
+          <div class="caixa perde"><h4>Abrimos mão</h4><ul><li>Memória cresce com cada ação: precisa de limite (por exemplo, 20 ações).</li><li>Em saúde, o histórico oficial deve ficar no banco (auditoria), e não só na pilha da sessão.</li></ul></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="caso">
+      <summary>
+        <span class="caso-titulo">Listas dinâmicas de remédios e doses do dia</span>
+        <span class="tag feito">Implementado</span>
+        <span class="caso-sub">Vetor dinâmico construído por casamento em ordem (dois "ponteiros")</span>
+      </summary>
+      <div class="caso-corpo">
+        <p><strong>Cenário.</strong> Um residente pode ter qualquer número de remédios, e cada remédio qualquer número de horários. Não há tamanho fixo, então usamos listas dinâmicas do Python. Para saber a situação de cada dose, o sistema percorre os horários em ordem e "casa" cada um com a dose registrada na mesma posição: o 1º registro cobre o 1º horário, e assim por diante.</p>
+        <figure class="codigo">
+          <figcaption><span>app.py, linhas 1384 a 1391</span><span>percurso com índice</span></figcaption>
+<pre><code>for i, h in enumerate(horarios):
+    if i &lt; len(registradas):
+        doses.append({'horario': h, 'situacao': 'dado',
+                      'por': registradas[i]['administrado_por'] or ''})
+    elif h &gt; hora_agora:
+        doses.append({'horario': h, 'situacao': 'mais_tarde', 'por': ''})
+    else:
+        doses.append({'horario': h, 'situacao': 'sem_registro', 'por': ''})</code></pre>
+        </figure>
+        <p><strong>Ligação com memória.</strong> A <code>list</code> do Python é um <strong>vetor dinâmico de ponteiros</strong>: quando enche, aloca um bloco maior e copia. Por isso <code>append</code> custa O(1) amortizado e o acesso <code>registradas[i]</code> é O(1). Uma lista encadeada daria inserção no meio O(1), mas aqui só inserimos no fim e acessamos por índice, então o vetor é a escolha certa.</p>
+      </div>
+    </details>
+  </div>
+
+  <!-- ------------------------------------------------ ORDENAÇÃO E BUSCA -->
+  <div class="grupo-ed" id="ordenacao">
+    <h3><span class="num">4.2</span> Ordenação e busca</h3>
+
+    <details class="caso" open>
+      <summary>
+        <span class="caso-titulo">Índices do banco: busca em árvore B em vez de varrer a tabela</span>
+        <span class="tag feito">Implementado</span>
+        <span class="caso-sub">O(log n) para achar residentes, remédios e doses de uma casa</span>
+      </summary>
+      <div class="caso-corpo">
+        <p><strong>Cenário.</strong> Uma casa pode ter centenas de residentes, e o sistema inteiro pode ter milhares. Sem índice, cada abertura de lista faria o banco ler <em>todas</em> as linhas (O(n)). Criamos índices compostos, que o SQLite guarda como <strong>árvores B</strong> ordenadas pelas colunas indicadas:</p>
+        <figure class="codigo">
+          <figcaption><span>app.py, linhas 658 a 671</span><span>árvores B do SQLite</span></figcaption>
+<pre><code><span class="c"># Índices para a lista, a busca e as contagens continuarem rápidas com</span>
+<span class="c"># milhares de pacientes. Só aceleram consultas: não mudam nenhum dado.</span>
+for nome_idx, tabela, colunas in [
+    ('idx_pacientes_casa', 'pacientes', 'casa_id, ativo, nome'),
+    ('idx_condicoes_paciente', 'condicoes', 'paciente_id'),
+    ('idx_medicamentos_paciente', 'medicamentos', 'paciente_id, ativo'),
+    ('idx_horarios_medicamento', 'horarios_medicamento', 'medicamento_id'),
+    ('idx_doses_medicamento', 'doses_administradas', 'medicamento_id, horario_previsto'),
+    ('idx_exames_paciente', 'exames', 'paciente_id, data_exame'),
+    ('idx_visitas_paciente', 'visitas', 'paciente_id, data_visita'),
+    ('idx_evolucoes_paciente', 'evolucoes_medicas', 'paciente_id, data_evolucao'),
+    ('idx_usuarios_casa', 'usuarios', 'casa_id, perfil'),
+]:
+    cursor.execute(f'CREATE INDEX IF NOT EXISTS {nome_idx} ON {tabela} ({colunas})')</code></pre>
+        </figure>
+        <p><strong>Por que árvore B.</strong> É uma árvore de busca com muitos filhos por nó, e cada nó ocupa uma página de disco (4 KB no SQLite). Com centenas de chaves por página, a árvore fica muito baixa: achar um registro entre 1 milhão leva cerca de 3 leituras de página. É a ideia da <strong>busca binária</strong> adaptada para o disco, onde o caro é ler a página, não comparar números.</p>
+        <p><strong>Ordem das colunas importa.</strong> <code>(casa_id, ativo, nome)</code> deixa os residentes ativos de uma casa já ordenados por nome dentro do índice. A consulta da lista usa <code>ORDER BY p.nome</code> e pode ler o índice em ordem, sem ordenar de novo.</p>
+        <div class="duas">
+          <div class="caixa ganha"><h4>Ganhamos (leitura rápida)</h4><ul><li>Busca e intervalos em O(log n).</li><li>Resultados já ordenados pelo índice.</li></ul></div>
+          <div class="caixa perde"><h4>Abrimos mão (inserção mais lenta)</h4><ul><li>Cada <code>INSERT</code>/<code>UPDATE</code> também atualiza 9 árvores.</li><li>Ocupa espaço extra no arquivo.</li><li>Vale a pena: o sistema lê muito mais do que grava (abrir fichas e agenda o dia todo; registrar dose é um clique).</li></ul></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="caso">
+      <summary>
+        <span class="caso-titulo">Ordenação das doses atrasadas e da agenda</span>
+        <span class="tag feito">Implementado</span>
+        <span class="caso-sub">Ordenação estável por chave composta (horário, nome sem acento)</span>
+      </summary>
+      <div class="caso-corpo">
+        <p><strong>Cenário.</strong> Na tela Hoje, a dose mais antiga sem registro precisa aparecer primeiro; em empate de horário, por nome do residente, ignorando acentos (Á e A juntos).</p>
+        <figure class="codigo">
+          <figcaption><span>app.py, linhas 3460 e 3461</span><span>Timsort, O(n log n)</span></figcaption>
+<pre><code>atrasadas.sort(key=lambda x: (x['horario'], _norm(x['paciente'])))
+proximas.sort(key=lambda x: (x['horario'], _norm(x['paciente'])))</code></pre>
+        </figure>
+        <p><strong>Detalhes de ED.</strong></p>
+        <ul>
+          <li>O <code>sort</code> do Python é o <strong>Timsort</strong> (mistura de merge sort e insertion sort): O(n log n) no pior caso e quase O(n) quando a lista já vem parcialmente ordenada, que é o nosso caso, porque o SQL já devolve os horários em ordem dentro de cada remédio.</li>
+          <li>A chave é uma <strong>tupla</strong>: compara o horário e só olha o nome em caso de empate.</li>
+          <li>Os horários são textos <code>"HH:MM"</code> de tamanho fixo, então a ordem alfabética coincide com a ordem do relógio (<code>"08:00" &lt; "14:30"</code>). Assim comparamos texto sem converter para data.</li>
+        </ul>
+        <p><strong>Ordenação "natural" dos quartos.</strong> Ordem alfabética pura colocaria o quarto "10" antes do "2". A chave <code>(len(q), q)</code> resolve: primeiro pelo tamanho, depois pelo texto.</p>
+        <figure class="codigo">
+          <figcaption><span>app.py, linha 1901</span><span>chave composta</span></figcaption>
+<pre><code>quartos_lista = sorted(quartos, key=lambda q: (len(q), q))</code></pre>
+        </figure>
+      </div>
+    </details>
+
+    <details class="caso">
+      <summary>
+        <span class="caso-titulo">Paginação da lista de residentes</span>
+        <span class="tag parcial">Parcial</span>
+        <span class="caso-sub">25 por página com LIMIT/OFFSET; busca por chave como melhoria</span>
+      </summary>
+      <div class="caso-corpo">
+        <p><strong>Cenário.</strong> Mostrar 500 residentes de uma vez deixaria o celular lento. A lista traz só 25 por vez (<code>POR_PAGINA = 25</code>, app.py linha 1808):</p>
+        <figure class="codigo">
+          <figcaption><span>app.py, linhas 1889 e 1890</span><span>SQL</span></figcaption>
+<pre><code>ORDER BY p.nome COLLATE NOCASE, p.id
+LIMIT ? OFFSET ?</code></pre>
+        </figure>
+        <p><strong>Análise.</strong> O <code>OFFSET</code> obriga o banco a contar e pular as linhas anteriores: a página 40 custa O(offset + 25). Com centenas de residentes, isso é imperceptível.</p>
+        <p><strong>Proposta (se crescer muito).</strong> Paginação por chave (<em>keyset</em>): em vez de "pule 975", pedir "nomes depois de <em>Maria Silva</em>". Com o índice em árvore B isso vira uma busca O(log n) até o ponto de partida, seguida de 25 leituras em sequência.</p>
+      </div>
+    </details>
+
+    <details class="caso">
+      <summary>
+        <span class="caso-titulo">Busca binária: próxima dose e leitura de logs</span>
+        <span class="tag proposta">Proposta</span>
+        <span class="caso-sub">bisect sobre listas que já estão ordenadas</span>
+      </summary>
+      <div class="caso-corpo">
+        <p><strong>Cenário 1: "qual é a próxima dose?"</strong> Os horários de cada remédio já saem do banco ordenados (<code>ORDER BY horario</code>). Para achar o primeiro horário depois de agora, hoje percorremos a lista do início. Com busca binária (<code>bisect</code>) achamos a posição em O(log n):</p>
+        <figure class="codigo">
+          <figcaption><span>proposta (ainda não está no código)</span><span>módulo bisect</span></figcaption>
+<pre><code>from bisect import bisect_right
+
+horarios = ['06:00', '08:00', '12:00', '18:00', '22:00']   <span class="c"># já ordenado pelo SQL</span>
+i = bisect_right(horarios, '13:10')                          <span class="c"># divide ao meio a cada passo</span>
+proxima = horarios[i] if i &lt; len(horarios) else None        <span class="c"># '18:00'</span></code></pre>
+        </figure>
+        <p><strong>Cenário 2: logs.</strong> O <code>logger.py</code> grava cada evento como uma linha JSON com data e hora, em ordem de tempo. Para investigar "o que aconteceu às 14h do dia 10", uma ferramenta de suporte pode fazer busca binária pela posição no arquivo (ler a linha do meio, comparar a hora, descartar metade), em vez de ler o arquivo inteiro.</p>
+        <div class="duas">
+          <div class="caixa ganha"><h4>Ganhamos</h4><p>O(log n) em vez de O(n). Em um log de 1 milhão de linhas, cerca de 20 leituras.</p></div>
+          <div class="caixa perde"><h4>Condição</h4><p>Só funciona se os dados estiverem ordenados. Cada remédio tem poucos horários (até 6), então hoje o ganho é pequeno; no log ele é grande.</p></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="caso">
+      <summary>
+        <span class="caso-titulo">Busca por nome com "contém"</span>
+        <span class="tag parcial">Parcial</span>
+        <span class="caso-sub">LIKE '%texto%' é varredura linear; índice de texto como melhoria</span>
+      </summary>
+      <div class="caso-corpo">
+        <p><strong>Cenário.</strong> A enfermeira digita "jose" e espera achar "José". A busca normaliza o texto (sem acento, minúsculas) e procura em qualquer parte do nome, devolvendo no máximo 8 resultados:</p>
+        <figure class="codigo">
+          <figcaption><span>app.py, linhas 1968 a 1972</span><span>SQL com função norm</span></figcaption>
+<pre><code>linhas = conn.execute(
+    'SELECT id, nome, quarto FROM pacientes '
+    "WHERE ativo = 1 AND casa_id = ? AND norm(nome) LIKE ? ESCAPE '\\' "
+    'ORDER BY nome COLLATE NOCASE LIMIT 8',
+    (casa, _padrao_like(q))).fetchall()</code></pre>
+        </figure>
+        <p><strong>Trade-off honesto.</strong> Um padrão que começa com <code>%</code> não consegue usar a árvore B do nome, então o banco percorre os residentes daquela casa (O(n) dentro da casa, já filtrado pelo índice de <code>casa_id</code>). Para algumas centenas de residentes, é instantâneo e mais simples de manter.</p>
+        <p><strong>Proposta.</strong> Para milhares de nomes: índice de texto completo (FTS5 do SQLite, que é um índice invertido: palavra → lista de linhas) ou uma <strong>árvore de prefixos (trie)</strong> em memória para o autocompletar, com busca em O(tamanho do texto digitado).</p>
+      </div>
+    </details>
+  </div>
+
+  <!-- ------------------------------------------------ AVANÇADAS -->
+  <div class="grupo-ed" id="avancadas">
+    <h3><span class="num">4.3</span> Estruturas avançadas: hash, heaps, árvores e grafos</h3>
+
+    <details class="caso" open>
+      <summary>
+        <span class="caso-titulo">Tabelas hash na autenticação: sessão e token CSRF</span>
+        <span class="tag feito">Implementado</span>
+        <span class="caso-sub">Acesso O(1) aos dados do usuário logado em toda requisição</span>
+      </summary>
+      <div class="caso-corpo">
+        <p><strong>Cenário.</strong> Toda tela precisa saber, em microssegundos, quem está logado, qual o perfil e de qual casa. No login, o Flask guarda isso na <strong>sessão</strong>, que é um dicionário (tabela hash) assinado e enviado no cookie:</p>
+        <figure class="codigo">
+          <figcaption><span>app.py, linhas 1000 a 1006</span><span>dict da sessão</span></figcaption>
+<pre><code>session['usuario_id']     = usuario['id']
+session['usuario_nome']   = usuario['nome']
+session['usuario_perfil'] = usuario['perfil']
+session['paciente_id']    = usuario['paciente_id']
+session['casa_id']        = usuario['casa_id']
+session['casa_nome']      = casa['nome'] if casa else None
+session['casa_slug']      = casa_pre['slug']</code></pre>
+        </figure>
+        <p>Cada formulário também carrega um <strong>token CSRF</strong> aleatório guardado nessa mesma tabela. A comparação usa <code>hmac.compare_digest</code>, que leva sempre o mesmo tempo, para que um atacante não descubra o token medindo quanto a comparação demora:</p>
+        <figure class="codigo">
+          <figcaption><span>app.py, linhas 45 a 53 (trecho)</span><span>token na sessão</span></figcaption>
+<pre><code>def _gerar_csrf_token():
+    if 'csrf_token' not in session:
+        session['csrf_token'] = uuid.uuid4().hex
+    return session['csrf_token']
+
+def _validar_csrf():
+    token_sessao = session.get('csrf_token', '')
+    token_form   = request.form.get('csrf_token', '')
+    if not token_sessao or not hmac.compare_digest(token_sessao, token_form):</code></pre>
+        </figure>
+        <p><strong>Cuidado com o nome "hash".</strong> Há dois sentidos diferentes no projeto, e a disciplina ajudou a separá-los:</p>
+        <ul>
+          <li><strong>Tabela hash</strong> (<code>dict</code>): função de espalhamento rápida para achar a posição de uma chave na memória. Objetivo: velocidade, O(1) em média.</li>
+          <li><strong>Hash criptográfico</strong> (bcrypt nas senhas, linhas 770 a 774): função <em>propositalmente lenta</em> e com "sal" aleatório, para que roubar o banco não revele as senhas. Objetivo: segurança, não velocidade.</li>
+        </ul>
+        <div class="duas">
+          <div class="caixa ganha"><h4>Ganhamos</h4><ul><li>Leitura O(1) em média de qualquer campo da sessão.</li><li>Nenhuma consulta ao banco só para saber o perfil.</li></ul></div>
+          <div class="caixa perde"><h4>Abrimos mão</h4><ul><li>Tabela hash não tem ordem útil e gasta mais memória que um vetor (sobra espaço para evitar colisões).</li><li>Por isso, em telas sensíveis, a sessão é conferida de novo no banco (conta desativada perde o acesso).</li></ul></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="caso">
+      <summary>
+        <span class="caso-titulo">Outras tabelas hash e conjuntos no dia a dia do código</span>
+        <span class="tag feito">Implementado</span>
+        <span class="caso-sub">Agrupar, contar, eliminar repetidos e validar arquivos</span>
+      </summary>
+      <div class="caso-corpo">
+        <div class="tabela-wrap">
+          <table>
+            <thead><tr><th>Onde</th><th>Estrutura</th><th>Para quê</th><th>Custo</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">agenda_diaria (3399 a 3409)</td><td><code>dict</code> horário → lista de doses</td><td>Agrupar as doses do dia por horário numa só passada</td><td class="mono">O(n)</td></tr>
+              <tr><td class="mono">agenda_diaria (3400 a 3404)</td><td><code>set</code> de quartos</td><td>Montar o filtro de quartos sem repetição</td><td class="mono">O(1) por inserção</td></tr>
+              <tr><td class="mono">_doses_sem_registro (3436)</td><td><code>dict</code> remédio → doses dadas hoje</td><td>Contagem feita pelo banco (GROUP BY), consultada em O(1) para cada horário</td><td class="mono">O(1) por consulta</td></tr>
+              <tr><td class="mono">_doses_sem_registro (3447)</td><td><code>dict</code> remédio → posição</td><td>Saber se é o 1º, 2º ou 3º horário daquele remédio</td><td class="mono">O(1)</td></tr>
+              <tr><td class="mono">familia_exames (1470 a 1478)</td><td><code>dict</code> mês → exames + lista da ordem</td><td>Agrupar exames por mês mantendo do mais novo ao mais antigo</td><td class="mono">O(n)</td></tr>
+              <tr><td class="mono">_MIME_PERMITIDOS (737)</td><td><code>dict</code> assinatura → tipo</td><td>Conferir os primeiros bytes do arquivo enviado (PDF, PNG, JPG, WEBP)</td><td class="mono">O(1) por tipo</td></tr>
+              <tr><td class="mono">EXTENSOES_FOTO (197)</td><td><code>set</code></td><td>Aceitar só png, jpg, jpeg e webp</td><td class="mono">O(1)</td></tr>
+              <tr><td class="mono">sw.js (service worker)</td><td>Cache API: URL → resposta</td><td>Abrir telas já vistas mesmo sem internet</td><td class="mono">O(1) por URL</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <figure class="codigo">
+          <figcaption><span>app.py, linhas 3399 a 3407</span><span>agrupamento com dict + set</span></figcaption>
+<pre><code>agenda = {}
+quartos = set()
+for d in dados:
+    item = dict(d)
+    if item.get('quarto'):
+        quartos.add(str(item['quarto']).strip())
+    h = item['horario']
+    if h not in agenda:
+        agenda[h] = []
+    agenda[h].append(item)</code></pre>
+        </figure>
+        <p><strong>Por que não procurar numa lista?</strong> Sem o dicionário, para cada dose teríamos de procurar o grupo do horário numa lista: O(n) por dose e O(n²) no total. Com hash, cada dose cai no seu grupo em O(1) e o total é O(n). Como o Python mantém a ordem de inserção nos dicionários e o SQL já vem ordenado por horário, a agenda sai em ordem sem ordenar de novo.</p>
+      </div>
+    </details>
+
+    <details class="caso" open id="heap">
+      <summary>
+        <span class="caso-titulo">Fila de prioridade (heap) para alarmes de doses e antibióticos</span>
+        <span class="tag proposta">Proposta</span>
+        <span class="caso-sub">O alerta mais crítico sempre no topo, em O(1); inserir e retirar em O(log n)</span>
+      </summary>
+      <div class="caso-corpo">
+        <p><strong>Cenário.</strong> A tela Hoje mostra as 15 doses mais atrasadas e os antibióticos que terminam logo. Hoje o código monta a lista inteira, ordena tudo e corta:</p>
+        <figure class="codigo">
+          <figcaption><span>app.py, linhas 3460 e 3510</span><span>ordenar tudo para usar 15</span></figcaption>
+<pre><code>atrasadas.sort(key=lambda x: (x['horario'], _norm(x['paciente'])))
+...
+return render_template('hoje.html', atrasadas=atrasadas[:15], total_atrasadas=len(atrasadas), ...</code></pre>
+        </figure>
+        <p>Ordenar n itens para usar só k = 15 custa O(n log n). E os alertas não têm todos o mesmo peso: um <strong>antibiótico que já acabou</strong> é mais urgente que uma <strong>dose 40 minutos atrasada</strong>, que é mais urgente que uma <strong>dose daqui a 1 hora</strong>.</p>
+        <p><strong>Proposta.</strong> Um <strong>min-heap</strong> (módulo <code>heapq</code>) com a chave <code>(prioridade, horário, nome)</code>. O heap é uma árvore binária completa guardada <em>dentro de um vetor</em>: os filhos da posição i ficam em 2i+1 e 2i+2, sem nenhum ponteiro. O mais urgente está sempre na posição 0.</p>
+        <figure class="codigo">
+          <figcaption><span>proposta (ainda não está no código)</span><span>módulo heapq</span></figcaption>
+<pre><code>import heapq
+
+CRITICO, ATRASADA, PROXIMA = 1, 2, 3      <span class="c"># menor número = mais urgente</span>
+
+alertas = []
+heapq.heappush(alertas, (ATRASADA, '08:00', 'Residente A', 'Losartana 50 mg'))
+heapq.heappush(alertas, (CRITICO,  '00:00', 'Residente B', 'Amoxicilina: tratamento terminou'))
+heapq.heappush(alertas, (PROXIMA,  '14:00', 'Residente C', 'Metformina 850 mg'))
+
+mais_urgente = alertas[0]                  <span class="c"># O(1): só olhar o topo</span>
+atendido = heapq.heappop(alertas)          <span class="c"># O(log n): tira e reorganiza</span>
+top15 = heapq.nsmallest(15, todos)         <span class="c"># O(n log 15) em vez de O(n log n)</span></code></pre>
+        </figure>
+
+        <div class="sim" aria-labelledby="sim-titulo">
+          <h4 id="sim-titulo">Simulador: veja o heap funcionando</h4>
+          <p style="margin:0;font-size:.9em">Adicione alertas e atenda o mais urgente. Repare que o vetor e a árvore são a mesma coisa vista de dois jeitos. Os nomes são inventados.</p>
+          <div class="sim-barra">
+            <button class="btn" id="sim-add">+ Alerta aleatório</button>
+            <button class="btn sec" id="sim-crit">+ Antibiótico terminou (crítico)</button>
+            <button class="btn sec" id="sim-pop">Atender o mais urgente</button>
+            <button class="btn sec" id="sim-reset">Recomeçar</button>
+          </div>
+          <div class="sim-cols">
+            <div>
+              <h4>Árvore (como pensamos)</h4>
+              <div class="heap-arvore" id="sim-arvore"></div>
+              <h4>Vetor (como fica na memória)</h4>
+              <div class="heap-vetor" id="sim-vetor"></div>
+            </div>
+            <div>
+              <h4>O que aconteceu</h4>
+              <ul class="sim-log" id="sim-log" aria-live="polite"></ul>
+            </div>
+          </div>
+          <p class="sim-aviso">Cores: vermelho = crítico (1), amarelo = dose atrasada (2), azul = próxima dose (3). O nó com borda grossa é o topo do heap.</p>
+        </div>
+
+        <div class="duas">
+          <div class="caixa ganha"><h4>Ganhamos</h4><ul><li>Ver o mais urgente em O(1).</li><li>Novo alerta entra em O(log n), sem reordenar tudo.</li><li>Vetor contíguo, sem ponteiros: pouca memória e bom uso do cache da CPU.</li></ul></div>
+          <div class="caixa perde"><h4>Abrimos mão</h4><ul><li>O heap não fica totalmente ordenado: para listar todos em ordem ainda é O(n log n).</li><li>Buscar um alerta específico no meio é O(n).</li><li>Para a tela atual (dezenas de doses), o ganho é pequeno; ele aparece com muitas casas e no envio de alarmes em tempo real.</li></ul></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="caso">
+      <summary>
+        <span class="caso-titulo">Árvore de perfis e de dados: quem pode ver o quê</span>
+        <span class="tag feito">Implementado</span>
+        <span class="caso-sub">Hierarquia superadmin → casa → equipe/família → residente</span>
+      </summary>
+      <div class="caso-corpo">
+        <p><strong>Cenário.</strong> O controle de acesso segue uma <strong>árvore</strong>. O superadmin fica na raiz e enxerga as casas. Cada casa é uma subárvore isolada, com seus administradores, enfermeiros e responsáveis. O responsável é uma folha ligada a um único residente.</p>
+        <div class="diagrama" role="img" aria-label="Árvore: superadmin na raiz; abaixo Casa A e Casa B; abaixo da Casa A ficam admin, enfermagem e responsável; o responsável está ligado a um residente.">
+          <svg viewBox="0 0 760 270" xmlns="http://www.w3.org/2000/svg">
+            <path class="lig" d="M380 54 L230 100 M380 54 L590 100 M230 136 L85 186 M230 136 L200 186 M230 136 L315 186 M230 136 L440 186"/>
+            <path class="lig-trac" d="M315 222 V246 H440 V222"/>
+            <rect class="cx-forte" x="310" y="18" width="140" height="36" rx="8"/><text class="txt" x="380" y="41" text-anchor="middle">Superadmin</text>
+            <rect class="cx" x="160" y="100" width="140" height="36" rx="8"/><text class="txt" x="230" y="123" text-anchor="middle">Casa A</text>
+            <rect class="cx" x="520" y="100" width="140" height="36" rx="8"/><text class="txt" x="590" y="123" text-anchor="middle">Casa B</text>
+            <text class="txt2" x="590" y="160" text-anchor="middle">(mesma estrutura, isolada)</text>
+            <rect class="cx" x="30" y="186" width="110" height="36" rx="8"/><text class="txt" x="85" y="209" text-anchor="middle">Admin</text>
+            <rect class="cx" x="145" y="186" width="110" height="36" rx="8"/><text class="txt" x="200" y="209" text-anchor="middle">Enfermagem</text>
+            <rect class="cx" x="260" y="186" width="110" height="36" rx="8"/><text class="txt" x="315" y="209" text-anchor="middle">Responsável</text>
+            <rect class="cx" x="385" y="186" width="110" height="36" rx="8"/><text class="txt" x="440" y="209" text-anchor="middle">Residente</text>
+            <text class="txt2" x="378" y="263" text-anchor="middle">vínculo: responsável → um residente</text>
+          </svg>
+        </div>
+        <p>No código, cada ramo da árvore vira um <strong>decorador</strong> que desvia quem não pertence àquele ramo, e toda consulta de residente é presa à subárvore da casa do usuário:</p>
+        <figure class="codigo">
+          <figcaption><span>app.py, linhas 795 a 804 e 821 a 826</span><span>poda da árvore por perfil e por casa</span></figcaption>
+<pre><code>def apenas_equipe(f):
+    <span class="c">"""Bloqueia responsáveis e o superadmin de acessar páginas de uma casa."""</span>
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if session.get('usuario_perfil') == 'responsavel':
+            return redirect(url_for('painel_responsavel'))
+        if session.get('usuario_perfil') == 'superadmin':
+            return redirect(url_for('listar_casas'))
+        return f(*args, **kwargs)
+    return decorated
+
+def buscar_paciente_da_casa(conn, paciente_id):
+    <span class="c">"""Busca um paciente garantindo que ele pertence à casa do usuário logado."""</span>
+    return conn.execute(
+        'SELECT * FROM pacientes WHERE id = ? AND casa_id = ?',
+        (paciente_id, casa_id_atual())
+    ).fetchone()</code></pre>
+        </figure>
+        <p><strong>Outras árvores no projeto.</strong> Os modelos de página formam uma árvore de herança (<code>base.html</code> é a raiz; <code>agenda.html</code>, <code>hoje.html</code> e as demais estendem ela; o portal tem sua própria raiz <code>base_publico.html</code>). E o HTML de cada tela é uma árvore (DOM) que o JavaScript percorre.</p>
+      </div>
+    </details>
+
+    <details class="caso">
+      <summary>
+        <span class="caso-titulo">Grafo de navegação e grafo de vínculos responsável–residente</span>
+        <span class="tag parcial">Parcial</span>
+        <span class="caso-sub">As 65 rotas formam um grafo; vínculos muitos-para-muitos como próximo passo</span>
+      </summary>
+      <div class="caso-corpo">
+        <p><strong>Grafo de navegação (existe).</strong> Cada rota é um vértice e cada link ou redirecionamento é uma aresta dirigida. Por exemplo: <code>/login → /hoje</code> (equipe), <code>/login → /meu-paciente</code> (família), <code>/meu-paciente → /responsavel/verificacao</code> quando a identidade ainda não foi aprovada. O menu do celular foi desenhado para que qualquer tela chegue ao Hoje, Pacientes, Agenda ou Registros em <strong>no máximo 1 aresta</strong>. Uma busca em largura (BFS) a partir do login responde "quantos toques até a tela X?" e acharia telas órfãs, que não são alcançáveis por nenhum caminho.</p>
+        <p><strong>Grafo de vínculos (proposta).</strong> Hoje um responsável aponta para um único residente (<code>paciente_id</code> em <code>usuarios</code>). Na vida real, um filho pode cuidar do pai e da mãe, e um idoso pode ter vários filhos. Isso é um <strong>grafo bipartido</strong> (responsáveis de um lado, residentes do outro) que fica numa tabela de ligação <code>vinculos_responsavel</code>, guardada como <strong>lista de adjacência</strong>: para cada responsável, a lista dos seus residentes.</p>
+        <div class="duas">
+          <div class="caixa ganha"><h4>Lista de adjacência</h4><p>Memória O(V + E): só guarda os vínculos que existem. Ideal, porque cada pessoa tem poucos vínculos (grafo esparso).</p></div>
+          <div class="caixa perde"><h4>Matriz de adjacência</h4><p>Memória O(V²): com 500 residentes e 1.000 responsáveis seriam 500 mil células, quase todas vazias. Responde "existe vínculo?" em O(1), mas um índice no banco faz isso em O(log n) gastando muito menos.</p></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="caso">
+      <summary>
+        <span class="caso-titulo">Vetores na verificação facial</span>
+        <span class="tag feito">Implementado</span>
+        <span class="caso-sub">Cada rosto vira um vetor de 128 números; comparar é medir distância</span>
+      </summary>
+      <div class="caso-corpo">
+        <p><strong>Cenário.</strong> Para conferir se a pessoa da selfie é a mesma do documento, o módulo <code>verificacao_identidade.py</code> transforma cada rosto em um <strong>vetor</strong> de 128 números reais e calcula a distância euclidiana entre os dois vetores. Distância pequena significa rostos parecidos.</p>
+        <figure class="codigo">
+          <figcaption><span>verificacao_identidade.py, linhas 22 a 27</span><span>limiares</span></figcaption>
+<pre><code><span class="c"># referência do modelo é 0,6. Abaixo de 0,50 tratamos como "compatível"; entre</span>
+<span class="c"># 0,50 e 0,60 como "inconclusivo" (comum em foto antiga de documento e em</span>
+<span class="c"># idosos); acima de 0,60 como "incompatível". São faixas para orientar a</span>
+...
+LIMIAR_COMPATIVEL = 0.50
+LIMIAR_INCOMPATIVEL = 0.60</code></pre>
+        </figure>
+        <p><strong>Ligação com memória.</strong> O vetor fica num bloco contíguo da biblioteca numérica (128 números de 8 bytes = 1 KB), e não numa lista de objetos Python espalhados pela memória. Calcular a distância percorre o bloco em sequência, o que aproveita o cache do processador. Decisão importante: o sistema só <em>sinaliza</em>; quem aprova é sempre uma pessoa da casa.</p>
+      </div>
+    </details>
+  </div>
+</section>
+
+<!-- ===================================================== RESUMO -->
+<section id="resumo">
+  <p class="rotulo">5 · Resumo das escolhas</p>
+  <h2>Tabela de decisões e trade-offs</h2>
+  <p>Na disciplina aprendemos que não existe estrutura "melhor": existe a melhor para o padrão de uso. O GestCare <strong>lê muito mais do que grava</strong> (a equipe abre fichas e a agenda o dia inteiro; registrar uma dose é um clique), então priorizamos leitura rápida e aceitamos inserções um pouco mais caras.</p>
+  <div class="tabela-wrap">
+    <table>
+      <thead><tr><th>Cenário</th><th>Estrutura</th><th>Operação principal</th><th>Custo</th><th>Prioriza</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Sessão e token CSRF</td><td>Tabela hash</td><td>ler campo</td><td class="mono">O(1)</td><td>leitura</td><td><span class="tag feito">Feito</span></td></tr>
+        <tr><td>Agenda por horário</td><td>Hash de listas</td><td>agrupar</td><td class="mono">O(n)</td><td>leitura</td><td><span class="tag feito">Feito</span></td></tr>
+        <tr><td>Índices do banco</td><td>Árvore B</td><td>buscar / intervalo</td><td class="mono">O(log n)</td><td>leitura (escrita fica mais cara)</td><td><span class="tag feito">Feito</span></td></tr>
+        <tr><td>Doses atrasadas</td><td>Ordenação (Timsort)</td><td>ordenar por chave</td><td class="mono">O(n log n)</td><td>clareza</td><td><span class="tag feito">Feito</span></td></tr>
+        <tr><td>Recentes da busca</td><td>Pilha limitada / LRU</td><td>empurrar no topo</td><td class="mono">O(k), k = 6</td><td>memória</td><td><span class="tag feito">Feito</span></td></tr>
+        <tr><td>Perfis e casas</td><td>Árvore</td><td>descer do ramo</td><td class="mono">O(altura)</td><td>isolamento</td><td><span class="tag feito">Feito</span></td></tr>
+        <tr><td>Verificação facial</td><td>Vetor contíguo</td><td>distância</td><td class="mono">O(128)</td><td>cache da CPU</td><td><span class="tag feito">Feito</span></td></tr>
+        <tr><td>Rate limit do login</td><td>Fila (deque)</td><td>entrar / vencer</td><td class="mono">O(1)</td><td>inserção</td><td><span class="tag parcial">Parcial</span></td></tr>
+        <tr><td>Paginação</td><td>Keyset na árvore B</td><td>ir para a página</td><td class="mono">O(log n)</td><td>leitura</td><td><span class="tag parcial">Parcial</span></td></tr>
+        <tr><td>Busca por nome</td><td>Índice invertido / trie</td><td>autocompletar</td><td class="mono">O(m)</td><td>leitura</td><td><span class="tag parcial">Parcial</span></td></tr>
+        <tr><td>Envio de push</td><td>Fila FIFO</td><td>enfileirar</td><td class="mono">O(1)</td><td>inserção</td><td><span class="tag proposta">Proposta</span></td></tr>
+        <tr><td>Alarmes críticos</td><td>Heap (fila de prioridade)</td><td>ver o mais urgente</td><td class="mono">O(1) / O(log n)</td><td>leitura do topo</td><td><span class="tag proposta">Proposta</span></td></tr>
+        <tr><td>Desfazer</td><td>Pilha</td><td>push / pop</td><td class="mono">O(1)</td><td>inserção</td><td><span class="tag proposta">Proposta</span></td></tr>
+        <tr><td>Próxima dose, logs</td><td>Busca binária</td><td>localizar</td><td class="mono">O(log n)</td><td>leitura</td><td><span class="tag proposta">Proposta</span></td></tr>
+        <tr><td>Vínculos família</td><td>Grafo (lista de adjacência)</td><td>vizinhos</td><td class="mono">O(grau)</td><td>memória</td><td><span class="tag proposta">Proposta</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="font-size:.85em;color:var(--ink-3)">n = número de itens; k = itens que interessam; m = tamanho do texto digitado.</p>
+</section>
+
+<!-- ===================================================== DISCIPLINA -->
+<section id="disciplina">
+  <p class="rotulo">6 · Da teoria ao software</p>
+  <h2>Como a disciplina ajudou no PI</h2>
+  <div class="grade">
+    <div class="cartao">
+      <h4>Enxergar o custo antes de escrever</h4>
+      <p>Antes, a lista de residentes trazia todos do banco e filtrava no navegador. Pensando em O(n) por tela com milhares de linhas, levamos filtro e paginação para o SQL e criamos os índices. A pergunta "quantas vezes isso roda e com quantos itens?" virou parte da revisão de código.</p>
+    </div>
+    <div class="cartao">
+      <h4>Memória e ponteiros</h4>
+      <p>Entender que a <code>list</code> do Python é um vetor de ponteiros e o <code>dict</code> uma tabela hash explicou por que <code>append</code> é barato, por que procurar numa lista é caro e por que um vetor contíguo (heap, vetores do rosto) aproveita melhor o cache do que nós ligados por ponteiros.</p>
+    </div>
+    <div class="cartao">
+      <h4>Leitura x inserção</h4>
+      <p>Aprendemos a escolher pelo padrão de uso. Índices em árvore B deixam a gravação um pouco mais lenta, mas o sistema lê muito mais do que grava. Já o modo WAL do SQLite (um log em que só se acrescenta no fim) deixa a leitura continuar enquanto alguém grava uma dose.</p>
+    </div>
+    <div class="cartao">
+      <h4>Hardware e disco</h4>
+      <p>A árvore B só faz sentido quando se entende que ler uma página do disco é milhares de vezes mais lento que comparar dois números na memória. Por isso ela tem muitos filhos por nó: menos níveis, menos leituras.</p>
+    </div>
+    <div class="cartao">
+      <h4>Vocabulário para decidir em grupo</h4>
+      <p>Termos como fila, heap, LRU e lista de adjacência deixaram as discussões objetivas: em vez de "fica lento", passamos a dizer "isso é O(n²) porque procura numa lista dentro de um laço".</p>
+    </div>
+    <div class="cartao">
+      <h4>Saber quando não otimizar</h4>
+      <p>Também aprendemos o contrário: com 6 itens, uma lista simples ganha de qualquer estrutura sofisticada. Por isso várias propostas desta página ficam para quando o volume pedir, e estão marcadas como tal.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================== PRÓXIMOS PASSOS -->
+<section id="proximos">
+  <p class="rotulo">7 · Próximos passos</p>
+  <h2>O que vem a seguir</h2>
+  <h3>Estruturais (estruturas de dados)</h3>
+  <ul class="tempo">
+    <li class="prox"><b>Fila de envio de push</b> com novas tentativas, guardada em tabela para não se perder em reinício.</li>
+    <li class="prox"><b>Heap de alarmes</b> unificando doses atrasadas e antibióticos por prioridade na tela Hoje.</li>
+    <li class="prox"><b>Rate limit com deque</b> e expiração por IP, no lugar da limpeza total.</li>
+    <li class="prox"><b>Busca com índice de texto (FTS5)</b> e paginação por chave quando passar de alguns milhares de residentes.</li>
+    <li class="prox"><b>Pilha de desfazer</b> para alterações no prontuário, com histórico gravado para auditoria.</li>
+    <li class="prox"><b>Vínculos responsável–residente</b> como grafo (tabela de ligação), aprovados pela casa.</li>
+  </ul>
+  <h3>Do produto</h3>
+  <ul class="tempo">
+    <li class="prox"><b>Alas e situação do residente</b> (ativo, internado, alta) para filtrar a casa por setor.</li>
+    <li class="prox"><b>Passagem de plantão</b> com confirmação de leitura.</li>
+    <li class="prox"><b>Segurança:</b> configurações sensíveis só em variáveis de ambiente e verificação em duas etapas para administradores.</li>
+  </ul>
+</section>
+
+</main>
+
+<footer>
+  <p><strong>GestCare</strong> · Projeto Integrador + Estruturas de Dados</p>
+  <p>Todos os nomes e dados de exemplo desta página são inventados. Nenhum dado real de residentes é exibido.</p>
+  <p>Trechos de código retirados do repositório <a href="https://github.com/ArthurSouzaDeveloper/GestCare">ArthurSouzaDeveloper/GestCare</a> (branch main).</p>
+</footer>
+
+<script src="script.js"></script>
+</body>
+</html>
