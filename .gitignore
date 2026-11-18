@@ -1,9 +1,33 @@
+# Python
 __pycache__/
 *.pyc
-database/*.db
-static/uploads/
-vapid_private_key.pem
 .venv/
 venv/
-uploads/
 .pytest_cache/
+
+# Banco de dados (contém dados de pacientes: nunca vai para o GitHub)
+database/
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Arquivos enviados pelo sistema (exames, documentos e fotos de rosto)
+uploads/
+static/uploads/
+
+# Segredos e chaves
+.env
+.env.*
+!.env.exemplo
+vapid_private_key.pem
+*.pem
+*.key
+
+# Cópias de segurança e registros (logs)
+backup/
+*.bak
+logs/
+*.log
