@@ -1,0 +1,56 @@
+/* Estilos extras da página de Modelos Computacionais e Complexidade.
+   Herda tudo de ../style.css; aqui só o que é desta página. */
+
+.campo-sim {
+  font-family: var(--mono); font-size: 0.9em; max-width: 100%;
+  border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+  background: var(--surface); color: var(--ink); flex: 1; min-width: 200px;
+}
+.campo-sim:focus { outline: 3px solid var(--brand); outline-offset: 1px; }
+
+/* ---------- AFD do CPF ---------- */
+.dfa-fita { display: flex; flex-wrap: wrap; gap: 4px; margin: 12px 0; }
+.dfa-fita span {
+  font: 600 0.85em var(--mono); border: 1px solid var(--line); border-radius: 5px;
+  padding: 5px 8px; background: var(--surface-2); color: var(--ink-2); min-width: 26px; text-align: center;
+}
+.dfa-fita span.ok { background: var(--ok-soft); color: var(--ok); border-color: var(--ok); }
+.dfa-fita span.ruim { background: var(--alert-soft); color: var(--alert); border-color: var(--alert); }
+.dfa-fita span.resto { opacity: 0.45; }
+
+.dfa-estados { display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0; }
+.dfa-estados b {
+  font: 500 0.75em var(--mono); border: 1px solid var(--line); border-radius: 999px;
+  padding: 3px 8px; color: var(--ink-3); background: var(--surface-2);
+}
+.dfa-estados b.visitado { background: var(--brand-soft); color: var(--brand); border-color: var(--brand); }
+.dfa-estados b.final { border-width: 2px; }
+.dfa-estados b.erro { background: var(--alert-soft); color: var(--alert); border-color: var(--alert); }
+
+.dfa-veredito { font-weight: 600; margin: 10px 0 0; overflow-wrap: anywhere; }
+.dfa-veredito.aceito { color: var(--ok); }
+.dfa-veredito.rejeitado { color: var(--alert); }
+
+/* ---------- Autômato de pilha ---------- */
+.pda-layout { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; margin-top: 12px; }
+.pda-layout > * { min-width: 0; }
+.pda-fita { font-size: 0.82em; line-height: 2.1; white-space: normal; overflow-wrap: anywhere; word-break: break-all; }
+.pda-fita i { font-style: normal; padding: 2px 1px; border-radius: 3px; }
+.pda-fita i.lido { background: var(--brand-soft); color: var(--brand); font-weight: 600; }
+.pda-fita i.atual { background: var(--brand); color: var(--brand-ink); font-weight: 700; }
+.pda-fita i.falhou { background: var(--alert-soft); color: var(--alert); font-weight: 700; }
+
+.pda-pilha {
+  display: flex; flex-wrap: wrap; gap: 4px; align-items: flex-end;
+  min-height: 56px; padding: 10px; border: 1px dashed var(--line); border-radius: 8px;
+  background: var(--surface-2);
+}
+.pda-pilha span {
+  font: 600 0.9em var(--mono); background: var(--brand-soft); color: var(--brand);
+  border: 1px solid var(--brand); border-radius: 5px; padding: 4px 9px;
+}
+.pda-pilha .vazia { font: 400 0.82em var(--sans); color: var(--ink-3); border: 0; background: none; padding: 0; }
+
+@media (max-width: 760px) {
+  .pda-layout { grid-template-columns: 1fr; }
+}

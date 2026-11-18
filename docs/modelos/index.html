@@ -1,0 +1,622 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GestCare: Modelos Computacionais e Complexidade</title>
+<meta name="description" content="Documento técnico do Projeto Integrador GestCare: onde expressões regulares, autômatos finitos, autômatos de pilha e análise de complexidade (P vs NP) aparecem no sistema.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%231f4e8c'/%3E%3Ctext x='16' y='22' font-family='Arial' font-weight='700' font-size='16' fill='white' text-anchor='middle'%3EGC%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../style.css">
+<link rel="stylesheet" href="modelos.css">
+<script>
+  try {
+    var t = localStorage.getItem('gc-tema'); if (t) document.documentElement.dataset.theme = t;
+    if (localStorage.getItem('gc-projecao') === '1') document.documentElement.classList.add('projecao');
+  } catch (e) {}
+</script>
+</head>
+<body>
+
+<header class="topo">
+  <div class="topo-in">
+    <a class="marca" href="#inicio"><span class="marca-logo" aria-hidden="true">GC</span> GestCare <span class="nome-longo" style="font-weight:400;color:var(--ink-3)">· Modelos + Complexidade</span></a>
+    <nav class="menu" aria-label="Seções">
+      <a href="#visao">Visão geral</a>
+      <a href="#estado">Estado atual</a>
+      <a href="#automatos">Autômatos</a>
+      <a href="#pilha">Pilha</a>
+      <a href="#complexidade">Complexidade</a>
+      <a href="#resumo">Resumo</a>
+      <a href="#disciplina">Disciplina</a>
+      <a href="#proximos">Próximos</a>
+    </nav>
+    <div class="acoes">
+      <button class="btn-icone btn-projecao" id="btn-projecao" aria-pressed="false" title="Aumenta as letras para projetar em sala">Modo projeção</button>
+      <button class="btn-icone" id="btn-tema" title="Alternar tema claro/escuro">Tema</button>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- ===================================================== CAPA -->
+<section class="capa" id="inicio">
+  <p class="rotulo">Projeto Integrador · Modelos Computacionais e Complexidade · ADC2</p>
+  <h1>GestCare: onde a teoria da computação aparece no sistema</h1>
+  <p class="lead">Este site é o documento técnico do nosso Projeto Integrador para esta disciplina. Ele mostra, com trechos do código real, onde <strong>expressões regulares e autômatos finitos</strong> validam as entradas, onde a ideia de <strong>autômato de pilha</strong> explica os formatos hierárquicos que o sistema lê, e como a <strong>análise de complexidade</strong> guiou o custo dos algoritmos centrais, inclusive o que ainda não é problema de P vs NP e quando poderia virar.</p>
+  <div class="ficha">
+    <span><b>Grupo:</b> Arthur de Souza, Daniel Caldas, Enzo Alves, Gabriel Martinelli, João Victor Furlan, Johnatan Grabovei e Lucas Bovolini</span>
+    <span><b>Código:</b> <a href="https://github.com/ArthurSouzaDeveloper/GestCare">github.com/ArthurSouzaDeveloper/GestCare</a></span>
+    <span><b>Outra disciplina:</b> <a href="../">Estruturas de Dados no mesmo projeto</a></span>
+  </div>
+  <div class="numeros" aria-label="O projeto em números">
+    <div class="numero"><b>3</b><span>regex reais para validar ou mascarar texto</span></div>
+    <div class="numero"><b>2</b><span>funções de CPF (formato por regex, dígitos por aritmética)</span></div>
+    <div class="numero"><b>4</b><span>assinaturas de arquivo checadas byte a byte</span></div>
+    <div class="numero"><b>0</b><span>problemas NP-difíceis resolvidos hoje (e por quê)</span></div>
+  </div>
+</section>
+
+<!-- ===================================================== VISÃO GERAL -->
+<section id="visao">
+  <p class="rotulo">1 · Visão geral</p>
+  <h2>O problema e a solução</h2>
+  <p>O GestCare é um sistema web para lares de idosos. As casas de repouso costumam controlar remédios, exames e prontuários em papel e planilhas, o que gera dose esquecida, tratamento de antibiótico que termina sem ninguém perceber e dados de saúde sem controle de acesso.</p>
+  <div class="problema-solucao">
+    <div class="cartao">
+      <h4>O problema</h4>
+      <ul>
+        <li>Dados digitados à mão (CPF, telefone, datas) chegam errados.</li>
+        <li>Arquivos enviados (exames, fotos de documento) podem não ser o que dizem ser.</li>
+        <li>Informação sensível (CPF, senha) pode vazar para os registros de funcionamento do sistema.</li>
+        <li>Telas lentas quando a casa cresce.</li>
+      </ul>
+    </div>
+    <div class="cartao">
+      <h4>A solução de engenharia</h4>
+      <ul>
+        <li>Aplicação <strong>Python + Flask</strong>, banco <strong>SQLite</strong>, instalável no celular (PWA).</li>
+        <li>Toda entrada passa por <strong>validação</strong> antes de chegar ao banco.</li>
+        <li>Agenda de doses, tela Hoje e alertas de antibiótico por notificação push.</li>
+        <li>Portal da família (somente leitura) e verificação de identidade do responsável.</li>
+      </ul>
+    </div>
+  </div>
+  <p>A descrição completa do sistema, a arquitetura e o modelo de dados estão na <a href="../#visao">página de Estruturas de Dados</a>. Aqui o foco é outro: <strong>que modelo computacional está por trás de cada validação e de cada algoritmo</strong>.</p>
+</section>
+
+<!-- ===================================================== ESTADO ATUAL -->
+<section id="estado">
+  <p class="rotulo">2 · Estado atual de desenvolvimento</p>
+  <h2>O que já funciona</h2>
+  <ul class="tempo">
+    <li><b>Base:</b> prontuário do residente, medicamentos com horários, registro de doses, visitas, evoluções, dieta, login com senha protegida (bcrypt) e várias casas no mesmo sistema.</li>
+    <li><b>PWA e push:</b> instalável no celular e com aviso quando um antibiótico está terminando.</li>
+    <li><b>Validação de entrada:</b> máscara e conferência de CPF e telefone no navegador e no servidor, conferência dos primeiros bytes de arquivos enviados, normalização de texto para busca.</li>
+    <li><b>Verificação de identidade:</b> foto do documento e do rosto, leitura de CPF por OCR (com regex) e decisão final de uma pessoa da casa.</li>
+    <li><b>Desempenho:</b> lista de residentes paginada no servidor, índices no banco, tela Hoje calculada com poucas consultas.</li>
+    <li><b>Registro seguro (logs):</b> campos sensíveis e CPFs são mascarados antes de gravar.</li>
+  </ul>
+  <p>Cada item da seção 3 está marcado como <span class="tag feito">Implementado</span>, <span class="tag parcial">Parcial</span> ou <span class="tag proposta">Proposta</span>. O que é proposta ainda não existe no código.</p>
+</section>
+
+<!-- ===================================================== AUTÔMATOS -->
+<section id="automatos">
+  <p class="rotulo">3.1 · Validação léxica e autômatos finitos (nível 3)</p>
+  <h2>Expressões regulares e AFDs nas entradas do sistema</h2>
+  <p>Uma expressão regular descreve uma <strong>linguagem regular</strong>, e toda linguagem regular é reconhecida por um <strong>autômato finito determinístico (AFD)</strong>. Ele lê o texto uma vez, da esquerda para a direita, guarda só o <em>estado atual</em> (sem memória extra) e decide em tempo linear, O(n). Foi exatamente esse limite de memória que a disciplina nos ensinou a respeitar: <strong>regex serve para formato; para contar, aninhar ou fazer aritmética, ela não serve.</strong></p>
+
+  <details class="caso" open>
+    <summary>
+      <span class="caso-titulo">CPF: o formato é regular, os dígitos verificadores não</span>
+      <span class="tag feito">Implementado</span>
+      <span class="caso-sub">Uma regex acha o CPF no texto; a aritmética confere os dois últimos dígitos</span>
+    </summary>
+    <div class="caso-corpo">
+      <p><strong>Cenário.</strong> Na verificação de identidade, o sistema lê o texto do documento por OCR e procura nele o CPF da pessoa. O texto vem sujo: às vezes com pontos e traço, às vezes só com espaços, às vezes sem nada.</p>
+      <figure class="codigo">
+        <figcaption><span>verificacao_identidade.py, linha 30</span><span>regex</span></figcaption>
+<pre><code>_RE_CPF = re.compile(r'(?&lt;!\d)(\d{3})[.\s]?(\d{3})[.\s]?(\d{3})[-\s.]?(\d{2})(?!\d)')</code></pre>
+      </figure>
+      <p>Em palavras: três dígitos, um separador opcional (ponto ou espaço), três dígitos, separador opcional, três dígitos, separador opcional (traço, espaço ou ponto) e dois dígitos. As partes <code>(?&lt;!\d)</code> e <code>(?!\d)</code> garantem que não há outro dígito colado antes ou depois, para não "arrancar" um CPF do meio de um número maior. Essa linguagem é <strong>regular</strong>: o autômato só precisa saber em que posição do formato está.</p>
+      <p><strong>Os dois últimos dígitos são outra história.</strong> Eles dependem de uma soma ponderada dos nove primeiros. Em teoria, como só existem 10<sup>9</sup> CPFs válidos de 11 dígitos, esse conjunto é finito e portanto regular; na prática, o AFD teria um número absurdo de estados. Por isso o código separa as duas tarefas:</p>
+      <figure class="codigo">
+        <figcaption><span>verificacao_identidade.py, linhas 37 a 46 e 49 a 57</span><span>aritmética + laço</span></figcaption>
+<pre><code>def cpf_digitos_validos(valor):
+    cpf = so_digitos(valor)
+    if len(cpf) != 11 or cpf == cpf[0] * 11:
+        return False
+    for tamanho in (9, 10):
+        soma = sum(int(cpf[i]) * (tamanho + 1 - i) for i in range(tamanho))
+        if (soma * 10) % 11 % 10 != int(cpf[tamanho]):
+            return False
+    return True
+
+def extrair_cpfs(texto):
+    vistos = []
+    for grupos in _RE_CPF.findall(texto or ''):
+        cpf = ''.join(grupos)
+        if cpf_digitos_validos(cpf) and cpf not in vistos:
+            vistos.append(cpf)
+    return vistos</code></pre>
+      </figure>
+      <p>A regex faz o trabalho de <strong>reconhecer o formato</strong> em tempo linear no tamanho do texto; a aritmética faz a <strong>conferência numérica</strong> em tempo constante (11 dígitos). Juntas, o falso alarme do OCR (um número qualquer de 11 dígitos) é descartado.</p>
+
+      <div class="sim" aria-labelledby="dfa-titulo">
+        <h4 id="dfa-titulo">Simulador: AFD do CPF no formato 000.000.000-00</h4>
+        <p style="margin:0;font-size:.9em">Este é o formato que o sistema grava e exibe (<code>formatar_cpf</code>, app.py linha 718). Digite um CPF e veja o autômato avançar um estado por caractere. O exemplo já preenchido é um CPF de teste conhecido, não é de uma pessoa real.</p>
+        <div class="sim-barra">
+          <input id="dfa-entrada" class="campo-sim mono" value="529.982.247-25" spellcheck="false" aria-label="Texto para o autômato do CPF" maxlength="20">
+          <button class="btn" id="dfa-rodar">Rodar o autômato</button>
+          <button class="btn sec" id="dfa-erro">Exemplo com erro</button>
+        </div>
+        <div class="dfa-fita" id="dfa-fita" aria-live="polite"></div>
+        <div class="dfa-estados" id="dfa-estados"></div>
+        <p class="dfa-veredito" id="dfa-veredito"></p>
+        <p class="sim-aviso">Estados q0 a q14: o estado <b>q<sub>i</sub></b> significa "já li i caracteres corretos". Só q14 é de aceitação. Qualquer caractere inesperado leva ao estado de erro (∅), do qual não se sai. O autômato não tem memória além do número do estado, por isso não consegue conferir os dígitos verificadores.</p>
+      </div>
+    </div>
+  </details>
+
+  <details class="caso">
+    <summary>
+      <span class="caso-titulo">Máscara de CPF e de telefone no navegador</span>
+      <span class="tag feito">Implementado</span>
+      <span class="caso-sub">Substituições por regex que se comportam como transdutores de estados finitos</span>
+    </summary>
+    <div class="caso-corpo">
+      <p><strong>Cenário.</strong> Enquanto a pessoa digita o telefone, o campo vai formatando: <code>(19) 98765-4321</code>. O código corta tudo que não é dígito e reescreve com a regex certa para cada tamanho:</p>
+      <figure class="codigo">
+        <figcaption><span>static/js/app.js, linhas 102 a 108</span><span>regex com grupos de captura</span></figcaption>
+<pre><code>function formatarTelefone(input) {
+  let v = input.value.replace(/\D/g, '').slice(0, 11);
+  if (v.length &gt; 10)     v = v.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
+  else if (v.length &gt; 6) v = v.replace(/(\d{2})(\d{4})(\d{1,4})/, '($1) $2-$3');
+  else if (v.length &gt; 2) v = v.replace(/(\d{2})(\d{1,5})/, '($1) $2');
+  input.value = v;
+}</code></pre>
+      </figure>
+      <p><strong>Leitura com autômatos.</strong> <code>replace(/\D/g, '')</code> é um autômato de um estado que descarta o que não é dígito. Cada regra seguinte é um <strong>transdutor</strong>: um autômato que, além de ler, escreve (insere "(", ")", espaço e "-"). Os três <code>if</code> existem porque a máscara depende do <em>tamanho</em>, e um tamanho é uma contagem: escolhemos a regra com um teste de comprimento fora da regex.</p>
+      <p><strong>Duas camadas.</strong> A mesma conferência do CPF existe em JavaScript (<code>cpfValido</code>, app.js linhas 130 a 140) para avisar a pessoa na hora, e em Python (<code>cpf_valido</code>, app.py linha 700) porque <em>o navegador pode ser contornado</em>; o servidor nunca confia só no que veio do cliente.</p>
+    </div>
+  </details>
+
+  <details class="caso">
+    <summary>
+      <span class="caso-titulo">Assinaturas de arquivo: um autômato sobre bytes</span>
+      <span class="tag feito">Implementado</span>
+      <span class="caso-sub">Conferir o início do arquivo para não confiar só na extensão</span>
+    </summary>
+    <div class="caso-corpo">
+      <p><strong>Cenário.</strong> Um arquivo chamado <code>exame.pdf</code> pode ser, na verdade, outra coisa. Antes de aceitar o upload, o sistema olha os primeiros bytes ("números mágicos") e compara com quatro prefixos aceitos:</p>
+      <figure class="codigo">
+        <figcaption><span>app.py, linhas 737 a 751</span><span>dicionário de prefixos</span></figcaption>
+<pre><code>_MIME_PERMITIDOS = {
+    b'\x25\x50\x44\x46': 'pdf',          <span class="c"># %PDF</span>
+    b'\x89\x50\x4e\x47': 'png',          <span class="c"># PNG</span>
+    b'\xff\xd8\xff':      'jpg',          <span class="c"># JPEG</span>
+    b'\x52\x49\x46\x46': 'webp',         <span class="c"># WEBP (RIFF)</span>
+}
+
+def _mime_valido(arquivo) -&gt; bool:
+    cabecalho = arquivo.read(8)
+    arquivo.seek(0)
+    for assinatura in _MIME_PERMITIDOS:
+        if cabecalho[:len(assinatura)] == assinatura:
+            return True
+    return False</code></pre>
+      </figure>
+      <p><strong>Leitura com autômatos.</strong> O conjunto {<code>%PDF</code>, <code>\x89PNG</code>, <code>\xff\xd8\xff</code>, <code>RIFF</code>} é uma linguagem finita de prefixos, logo regular. Um AFD que as reconhece compartilha o estado inicial e se ramifica no primeiro byte (é uma árvore de prefixos, ou trie, que vira autômato). O laço do código testa um prefixo de cada vez, O(p) para p prefixos, enquanto o AFD consumiria cada byte uma única vez; com 4 prefixos a diferença é irrelevante.</p>
+      <div class="duas">
+        <div class="caixa ganha"><h4>Ganhamos</h4><ul><li>Rejeitar arquivo cujo conteúdo não bate com a extensão.</li><li>Custo constante: lê só 8 bytes.</li></ul></div>
+        <div class="caixa perde"><h4>Limite honesto do modelo</h4><p>Como o autômato olha só o começo, <code>RIFF</code> também é o início de outros formatos (WAV, AVI). Reconhecer um WEBP de verdade exigiria ler mais bytes do cabeçalho. Fica como melhoria.</p></div>
+      </div>
+    </div>
+  </details>
+
+  <details class="caso">
+    <summary>
+      <span class="caso-titulo">Mascarar CPF e dados sensíveis nos logs</span>
+      <span class="tag feito">Implementado</span>
+      <span class="caso-sub">Regex de busca em texto: ocorrências substituídas antes de gravar</span>
+    </summary>
+    <div class="caso-corpo">
+      <p><strong>Cenário.</strong> Os logs do servidor servem para achar erros, mas não podem guardar senha, token nem CPF. O <code>logger.py</code> usa duas regex:</p>
+      <figure class="codigo">
+        <figcaption><span>logger.py, linhas 23 a 29</span><span>alternância e repetição</span></figcaption>
+<pre><code>_CAMPOS_SENSIVEIS = re.compile(
+    r'(senha|password|token|secret|cpf|credit_card|cartao|card_number'
+    r'|authorization|cookie|session_key|private_key|vapid)',
+    re.IGNORECASE,
+)
+
+_CPF_PATTERN = re.compile(r'\d{3}[\.\-]?\d{3}[\.\-]?\d{3}[\-\.]?\d{2}')</code></pre>
+      </figure>
+      <p>A primeira é uma <strong>união de palavras fixas</strong>: se o <em>nome</em> do campo contiver qualquer uma, o valor vira <code>[REDACTED]</code>. Um AFD para essa união lê o texto uma só vez (a ideia do algoritmo de Aho-Corasick), em vez de testar 13 palavras separadamente. A segunda acha CPFs soltos dentro de mensagens e troca por <code>[CPF-REDACTED]</code>.</p>
+      <p><strong>Observação de engenharia.</strong> Esta regex de log aceita qualquer sequência no formato, <em>sem</em> conferir os dígitos verificadores. É de propósito: para esconder dado pessoal, <em>falso positivo é melhor que falso negativo</em>. Já a regex da verificação de identidade (acima) precisa do contrário, porque um falso positivo aprovaria o documento errado.</p>
+    </div>
+  </details>
+
+  <details class="caso">
+    <summary>
+      <span class="caso-titulo">Slug da casa, rotas e datas</span>
+      <span class="tag feito">Implementado</span>
+      <span class="caso-sub">Normalizar texto para URL; roteamento com conversor numérico; data no formato ISO</span>
+    </summary>
+    <div class="caso-corpo">
+      <figure class="codigo">
+        <figcaption><span>app.py, linhas 829 a 836</span><span>substituição regular</span></figcaption>
+<pre><code>def gerar_slug(nome):
+    nome_norm = unicodedata.normalize('NFD', nome)
+    nome_ascii = nome_norm.encode('ascii', 'ignore').decode('ascii')
+    slug = nome_ascii.lower()
+    slug = re.sub(r'[^a-z0-9]+', '-', slug)
+    slug = slug.strip('-')
+    return slug or 'casa'</code></pre>
+      </figure>
+      <p>O nome "Lar São José" vira <code>lar-sao-jose</code>. A linguagem de saída é regular: <code>[a-z0-9]+(-[a-z0-9]+)*</code>. O link de entrada de cada casa (<code>/entrar/&lt;slug&gt;</code>) só funciona porque o slug tem esse formato previsível. Depois, <code>slug_unico</code> resolve colisões acrescentando <code>-1</code>, <code>-2</code>.</p>
+      <p><strong>Roteamento de URLs.</strong> Rotas como <code>/paciente/&lt;int:paciente_id&gt;</code> (app.py linha 2148) usam um <em>conversor</em>: o Flask só entrega a função se o trecho for número inteiro. Escrever "/paciente/abc" cai em "página não encontrada" sem rodar nenhuma linha nossa. É um autômato reconhecendo o caminho da URL por padrões.</p>
+      <p><strong>Datas.</strong> O formato <code>AAAA-MM-DD</code> é regular, mas "2026-02-30" tem o formato certo e não existe. Por isso <code>datetime.strptime(..., '%Y-%m-%d')</code> (usado, por exemplo, em <code>calcular_idade</code>, app.py linha 687, dentro de <code>try/except ValueError</code>) confere também o <em>significado</em> da data. De novo: regular para a forma, outro mecanismo para o conteúdo.</p>
+    </div>
+  </details>
+
+  <details class="caso">
+    <summary>
+      <span class="caso-titulo">Máquina de estados da verificação de identidade</span>
+      <span class="tag feito">Implementado</span>
+      <span class="caso-sub">Três estados no banco: pendente, aprovado, recusado</span>
+    </summary>
+    <div class="caso-corpo">
+      <p><strong>Cenário.</strong> Cada verificação de identidade de um responsável está sempre em exatamente um de três estados, garantido pelo próprio banco:</p>
+      <figure class="codigo">
+        <figcaption><span>app.py, linhas 629 e 630</span><span>restrição CHECK</span></figcaption>
+<pre><code>status TEXT NOT NULL DEFAULT 'pendente'
+    CHECK (status IN ('pendente', 'aprovado', 'recusado')),</code></pre>
+      </figure>
+      <div class="diagrama" role="img" aria-label="Autômato finito: estado inicial pendente; a decisão aprovar leva a aprovado; a decisão recusar leva a recusado.">
+        <svg viewBox="0 0 760 200" xmlns="http://www.w3.org/2000/svg">
+          <defs><marker id="b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="seta" d="M0,0 L10,5 L0,10 z"/></marker></defs>
+          <path class="lig" d="M20 100 H80" marker-end="url(#b)"/>
+          <text class="txt2" x="20" y="88">envio</text>
+          <circle class="cx-forte" cx="130" cy="100" r="48"/><text class="txt" x="130" y="105" text-anchor="middle">pendente</text>
+          <path class="lig" d="M176 80 C300 20 400 20 520 50" marker-end="url(#b)"/>
+          <text class="txt2" x="340" y="28" text-anchor="middle">admin aprova</text>
+          <path class="lig" d="M176 120 C300 180 400 180 520 150" marker-end="url(#b)"/>
+          <text class="txt2" x="340" y="188" text-anchor="middle">admin recusa (com motivo)</text>
+          <circle class="cx" cx="580" cy="60" r="52"/><circle class="cx" cx="580" cy="60" r="44" fill="none"/>
+          <text class="txt" x="580" y="65" text-anchor="middle">aprovado</text>
+          <circle class="cx" cx="580" cy="150" r="48"/><circle class="cx" cx="580" cy="150" r="40" fill="none"/>
+          <text class="txt" x="580" y="155" text-anchor="middle">recusado</text>
+        </svg>
+        <p class="diagrama-nota">Autômato de estados finitos. A transição é feita pela rota <code>repositorio_decidir</code> (app.py, a partir da linha 3222); a recusa exige motivo.</p>
+      </div>
+      <p><strong>Regra de acesso.</strong> O portal da família só abre para o responsável se a <em>decisão mais recente</em> (ignorando as pendentes) for "aprovado". Isso aparece em <code>responsavel_verificado</code> (app.py linha 3076): um novo envio pendente não tira o acesso de quem já foi aprovado, mas uma recusa tira. Em vez de espalhar <code>if</code>s, tratar o status como estados e transições deixou a regra pequena e testável.</p>
+      <p><strong>Observação.</strong> Como o código não impede decidir novamente uma verificação já decidida, o autômato real permite voltar de recusado para aprovado (e vice-versa); a decisão mais recente é a que vale.</p>
+    </div>
+  </details>
+</section>
+
+<!-- ===================================================== PILHA -->
+<section id="pilha">
+  <p class="rotulo">3.2 · Análise sintática e memória estruturada (nível 2)</p>
+  <h2>Autômatos de pilha: formatos que se aninham</h2>
+  <p>Um AFD não sabe contar. Para reconhecer "abre e fecha" em qualquer profundidade (como <code>{ { } }</code>) a máquina precisa de uma <strong>pilha</strong>: empilha ao abrir, desempilha ao fechar, e aceita se terminar com a pilha vazia. Essas linguagens são as <strong>livres de contexto</strong>, reconhecidas por <strong>autômatos de pilha</strong>. É por isso que <em>não dá</em> validar JSON, XML ou HTML apenas com regex.</p>
+
+  <details class="caso" open>
+    <summary>
+      <span class="caso-titulo">Payload JSON das notificações push</span>
+      <span class="tag feito">Implementado</span>
+      <span class="caso-sub">O celular envia um JSON aninhado; o servidor lê e valida os campos</span>
+    </summary>
+    <div class="caso-corpo">
+      <p><strong>Cenário.</strong> Para receber avisos, o celular da enfermeira envia ao servidor um objeto JSON com um objeto dentro de outro (<code>keys</code>). O servidor lê e confere se os três campos obrigatórios existem:</p>
+      <figure class="codigo">
+        <figcaption><span>app.py, linhas 3348 a 3356</span><span>JSON aninhado</span></figcaption>
+<pre><code>def push_inscrever():
+    dados = request.get_json(silent=True) or {}
+    endpoint = dados.get('endpoint')
+    keys = dados.get('keys') or {}
+    p256dh = keys.get('p256dh')
+    auth = keys.get('auth')
+    if not endpoint or not p256dh or not auth:
+        return jsonify({'erro': 'Dados de inscrição inválidos.'}), 400</code></pre>
+      </figure>
+      <p><strong>Onde está a pilha.</strong> <code>get_json</code> usa o <em>analisador</em> (parser) de JSON do Python, que é a implementação de um reconhecedor de gramática livre de contexto: a <strong>pilha de chamadas</strong> do analisador faz o papel da pilha do autômato (cada <code>{</code> aberto é um nível). Se o texto for inválido, <code>silent=True</code> devolve <code>None</code>, e o <code>or {}</code> vira um dicionário vazio, que cai na resposta 400. Do outro lado, o servidor <em>gera</em> JSON ao montar o aviso (<code>json.dumps</code>, app.py linha 226) e o <code>logger.py</code> grava cada linha de log como JSON.</p>
+      <p><strong>Divisão de trabalho.</strong> O analisador garante a <em>estrutura</em> (parênteses certos, aspas fechadas). Nossa validação garante o <em>conteúdo</em> (os campos existem). Não escrevemos um analisador próprio: reaproveitar o da biblioteca é mais seguro do que reinventar uma gramática.</p>
+
+      <div class="sim" aria-labelledby="pda-titulo">
+        <h4 id="pda-titulo">Simulador: autômato de pilha para chaves e colchetes</h4>
+        <p style="margin:0;font-size:.9em">Versão simplificada (só <code>{ } [ ]</code>; as aspas e o texto são ignorados). O exemplo inicial tem o formato do payload acima, com valores inventados.</p>
+        <div class="sim-barra">
+          <input id="pda-entrada" class="campo-sim mono" value='{"endpoint":"https://exemplo","keys":{"p256dh":"x","auth":"y"}}' spellcheck="false" aria-label="Texto para o autômato de pilha">
+        </div>
+        <div class="sim-barra">
+          <button class="btn" id="pda-passo">Próximo símbolo</button>
+          <button class="btn sec" id="pda-tudo">Rodar tudo</button>
+          <button class="btn sec" id="pda-erro1">Falta fechar</button>
+          <button class="btn sec" id="pda-erro2">Fecha o errado</button>
+          <button class="btn sec" id="pda-reset">Recomeçar</button>
+        </div>
+        <div class="pda-layout">
+          <div>
+            <h4>Texto lido</h4>
+            <div class="pda-fita mono" id="pda-fita" aria-live="polite"></div>
+            <p class="dfa-veredito" id="pda-veredito"></p>
+          </div>
+          <div>
+            <h4>Pilha (topo à direita)</h4>
+            <div class="pda-pilha mono" id="pda-pilha"></div>
+            <p class="sim-aviso" id="pda-info"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </details>
+
+  <details class="caso">
+    <summary>
+      <span class="caso-titulo">Templates HTML e Jinja: blocos que abrem e fecham</span>
+      <span class="tag parcial">Parcial</span>
+      <span class="caso-sub">O motor de templates usa pilha; uma checagem própria é proposta</span>
+    </summary>
+    <div class="caso-corpo">
+      <p><strong>Cenário.</strong> As 27 telas do sistema são páginas HTML em templates Jinja que herdam de um modelo-base. Os blocos precisam estar balanceados, e cada <code>{% block %}</code> fecha com seu <code>{% endblock %}</code>:</p>
+      <figure class="codigo">
+        <figcaption><span>templates/base.html, linhas 5, 149 e 194</span><span>blocos aninháveis</span></figcaption>
+<pre><code>&lt;title&gt;{% block titulo %}GestCare{% endblock %} — GestCare&lt;/title&gt;
+...
+{% block conteudo %}{% endblock %}
+...
+{% block scripts %}{% endblock %}</code></pre>
+      </figure>
+      <p><strong>Onde está a pilha.</strong> O Jinja compila o template com um analisador de pilha: <code>{% if %}</code> e <code>{% for %}</code> empilham, <code>{% endif %}</code> e <code>{% endfor %}</code> desempilham. Se faltar um fechamento, ele recusa o template com erro de sintaxe na hora de carregar, e <em>não</em> em silêncio. Já as tags HTML (<code>&lt;div&gt;</code> sem <code>&lt;/div&gt;</code>) o navegador tolera e "conserta", o que pode quebrar o layout sem erro nenhum.</p>
+      <p><strong>Proposta (não implementada).</strong> Um teste automático que percorre todos os templates com uma pilha e falha se uma tag de bloco (<code>div</code>, <code>section</code>, <code>table</code>…) ficar aberta ou fechar fora de ordem. É o mesmo algoritmo do simulador acima, com custo O(n) no tamanho do arquivo e O(profundidade) de memória.</p>
+    </div>
+  </details>
+
+  <details class="caso">
+    <summary>
+      <span class="caso-titulo">Por que regex não valida JSON: o argumento da disciplina</span>
+      <span class="tag feito">Implementado</span>
+      <span class="caso-sub">Decisão de arquitetura que evitamos por causa da teoria</span>
+    </summary>
+    <div class="caso-corpo">
+      <p>Uma regex tem um número <em>fixo</em> de estados. Para reconhecer <code>{</code><sup>n</sup><code>}</code><sup>n</sup> (n chaves abrindo e n fechando, com n qualquer) seria preciso um estado para cada valor de n, ou seja, infinitos. É o resultado do <strong>lema do bombeamento</strong> para linguagens regulares: ao "bombear" o trecho de aberturas, a quantidade deixa de bater com os fechamentos.</p>
+      <p>Na prática, isso orientou duas decisões do projeto: (1) <strong>nenhum</strong> código nosso tenta "validar JSON com regex"; usamos o analisador pronto; e (2) usamos regex só onde a linguagem é regular (CPF, telefone, slug, prefixos de arquivo, nomes de campo sensíveis).</p>
+    </div>
+  </details>
+</section>
+
+<!-- ===================================================== COMPLEXIDADE -->
+<section id="complexidade">
+  <p class="rotulo">3.3 · Análise de complexidade e tratabilidade (P vs NP)</p>
+  <h2>Quanto custa cada algoritmo central e onde pode haver intratabilidade</h2>
+  <p>Um algoritmo é considerado <strong>tratável</strong> quando roda em tempo polinomial no tamanho da entrada (P). Os problemas NP-difíceis não têm algoritmo polinomial conhecido; para eles, o caminho é usar <strong>heurísticas</strong> ou <strong>aproximações</strong> que dão uma boa resposta, não necessariamente a ótima, em tempo aceitável.</p>
+
+  <h3>Custo dos algoritmos do GestCare hoje</h3>
+  <div class="tabela-wrap">
+    <table>
+      <thead><tr><th>Algoritmo</th><th>Onde</th><th>Custo</th><th>Classe</th></tr></thead>
+      <tbody>
+        <tr><td>Validar CPF (dígitos verificadores)</td><td class="mono">verificacao_identidade.py 37</td><td class="mono">O(1) (11 dígitos)</td><td>P</td></tr>
+        <tr><td>Regex do formato do CPF no texto do OCR</td><td class="mono">verificacao_identidade.py 30</td><td class="mono">O(n) no tamanho do texto</td><td>P</td></tr>
+        <tr><td>Limite de tentativas de login</td><td class="mono">app.py 141</td><td class="mono">O(k), k ≤ 10 por IP</td><td>P</td></tr>
+        <tr><td>Doses atrasadas e próximas</td><td class="mono">app.py 3420</td><td class="mono">O(n log n) (ordenação)</td><td>P</td></tr>
+        <tr><td>Agenda do dia agrupada por horário</td><td class="mono">app.py 3387</td><td class="mono">O(n)</td><td>P</td></tr>
+        <tr><td>Busca de residente por nome</td><td class="mono">app.py 1968</td><td class="mono">O(n·m) na casa</td><td>P</td></tr>
+        <tr><td>Distância entre dois rostos</td><td class="mono">verificacao_identidade.py 143</td><td class="mono">O(128)</td><td>P</td></tr>
+        <tr><td>Hash de senha (bcrypt)</td><td class="mono">app.py 770</td><td class="mono">O(2<sup>custo</sup>), de propósito</td><td>P para quem entra; custoso para quem tenta adivinhar</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="font-size:.85em;color:var(--ink-3)">n = itens; m = tamanho do texto digitado; k = tentativas guardadas. Os custos de busca por índice (O(log n)) estão detalhados na <a href="../#ordenacao">página de Estruturas de Dados</a>.</p>
+
+  <details class="caso" open>
+    <summary>
+      <span class="caso-titulo">Um caso real: de "uma consulta por remédio" para "poucas consultas"</span>
+      <span class="tag parcial">Parcial</span>
+      <span class="caso-sub">Analisar o custo mostrou o problema das consultas repetidas (N+1)</span>
+    </summary>
+    <div class="caso-corpo">
+      <p><strong>Cenário.</strong> A ficha de um residente calcula a situação de cada dose do dia. A versão original, usada no portal da família, faz duas consultas ao banco <em>para cada remédio</em>:</p>
+      <figure class="codigo">
+        <figcaption><span>app.py, linhas 1372 a 1383</span><span>consultas dentro do laço</span></figcaption>
+<pre><code>for m in conn.execute(
+        'SELECT * FROM medicamentos WHERE paciente_id = ? AND ativo = 1 ORDER BY nome',
+        (paciente_id,)).fetchall():
+    med = dict(m)
+    horarios = [h['horario'][:5] for h in conn.execute(
+        'SELECT horario FROM horarios_medicamento WHERE medicamento_id = ? ORDER BY horario',
+        (m['id'],)).fetchall()]
+    registradas = conn.execute(
+        'SELECT administrado_por FROM doses_administradas '
+        'WHERE medicamento_id = ? AND substr(horario_previsto, 1, 10) = ? '
+        'ORDER BY horario_previsto, id', (m['id'], hoje)).fetchall()</code></pre>
+      </figure>
+      <p><strong>Análise.</strong> Para um residente com <em>m</em> remédios são 1 + 2<em>m</em> consultas: crescimento linear, ainda tratável, e m é pequeno (um idoso toma poucos remédios). Mas a tela <strong>Hoje</strong> precisa olhar <em>todos</em> os remédios da casa de uma vez. Se repetíssemos esse laço para cada residente, o custo seria (residentes × remédios × 2) consultas. A solução foi calcular tudo em um conjunto de consultas agrupadas:</p>
+      <figure class="codigo">
+        <figcaption><span>app.py, linhas 3436 a 3451 (trecho)</span><span>uma consulta agrupada + um laço em memória</span></figcaption>
+<pre><code>feitas = {r[0]: r[1] for r in conn.execute(
+    'SELECT d.medicamento_id, COUNT(*) FROM doses_administradas d '
+    '... WHERE p.casa_id = ? AND substr(d.horario_previsto, 1, 10) = ? '
+    'GROUP BY d.medicamento_id', (casa, hoje)).fetchall()}
+linhas = conn.execute('SELECT ... FROM horarios_medicamento h JOIN medicamentos m ... '
+                      'ORDER BY m.id, h.horario', (casa,)).fetchall()
+for r in linhas:
+    i = posicao.get(r['med_id'], 0)
+    posicao[r['med_id']] = i + 1
+    if i &lt; feitas.get(r['med_id'], 0):
+        continue</code></pre>
+      </figure>
+      <p>Resultado: <strong>2 consultas fixas</strong> mais um laço O(n) em memória, em vez de 2 consultas por remédio. Continua polinomial nos dois casos, mas o expoente "escondido" (número de idas ao banco) caiu. A tela de residentes também evita o problema usando subconsultas de contagem em uma só instrução (app.py linha 1886), apoiadas por índices.</p>
+      <p><strong>O que ainda é parcial.</strong> A ficha individual (<code>_remedios_do_paciente</code>) mantém o laço com consultas por remédio, aceitável para um residente, e é candidata a receber o mesmo tratamento.</p>
+    </div>
+  </details>
+
+  <details class="caso">
+    <summary>
+      <span class="caso-titulo">Bcrypt: complexidade alta de propósito</span>
+      <span class="tag feito">Implementado</span>
+      <span class="caso-sub">A intratabilidade a nosso favor: tornar a força bruta cara</span>
+    </summary>
+    <div class="caso-corpo">
+      <figure class="codigo">
+        <figcaption><span>app.py, linhas 770 a 774 (bcrypt 5.0.0, requirements.txt)</span><span>custo configurável</span></figcaption>
+<pre><code>def hash_senha(senha):
+    return bcrypt.hashpw(senha.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+def verificar_senha(senha, hash_armazenado):
+    return bcrypt.checkpw(senha.encode('utf-8'), hash_armazenado.encode('utf-8'))</code></pre>
+      </figure>
+      <p>O bcrypt repete um passo de cálculo 2<sup>custo</sup> vezes (o padrão da biblioteca é custo 12, ou seja, 4.096 repetições). Para quem faz login uma vez, são frações de segundo. Para quem tenta adivinhar milhões de senhas, o tempo total multiplica por esse mesmo fator. Aqui o crescimento exponencial é uma <strong>defesa</strong>. Somado ao limite de 10 tentativas por minuto por IP (app.py linha 141), o ataque de força bruta fica inviável.</p>
+    </div>
+  </details>
+
+  <h3>Onde o PI poderia esbarrar em problemas intratáveis</h3>
+  <p><strong>Resposta honesta:</strong> hoje, <strong>nenhum</strong>. O código não tem módulo de escala nem de alocação automática (não há nada disso no <code>app.py</code>). Todos os algoritmos acima são polinomiais e pequenos. Mas o roteiro do produto inclui funções cuja versão "ótima" é NP-difícil, e a disciplina nos ajudou a enxergar isso <em>antes</em> de escrever o código:</p>
+
+  <details class="caso" open>
+    <summary>
+      <span class="caso-titulo">Escala de plantão e alocação de cuidadores</span>
+      <span class="tag proposta">Proposta</span>
+      <span class="caso-sub">Problema de escalonamento com restrições: NP-difícil na versão geral</span>
+    </summary>
+    <div class="caso-corpo">
+      <p><strong>Cenário futuro.</strong> Montar quem trabalha em qual turno, respeitando folgas, carga máxima, qualificação (enfermeiro x cuidador) e cobertura mínima por ala. Com <em>n</em> pessoas e <em>t</em> turnos há (n)<sup>t</sup> combinações possíveis; achar a <em>melhor</em> é um problema NP-difícil na versão geral (é o clássico "nurse rostering").</p>
+      <p><strong>Heurística proposta.</strong> Em vez de tentar todas as combinações:</p>
+      <ol>
+        <li>Ordenar os turnos do mais difícil de cobrir para o mais fácil (O(t log t)).</li>
+        <li>Preencher cada turno <strong>de forma gulosa</strong>, escolhendo a pessoa disponível com menos horas acumuladas (O(t · n)).</li>
+        <li>Melhorar por <strong>busca local</strong>: trocar duas pessoas de lugar enquanto a violação de regras diminuir, com limite de iterações.</li>
+      </ol>
+      <p>O custo total fica polinomial (da ordem de t·n por rodada). Não garante a escala perfeita, mas garante uma escala <em>válida e boa</em> em segundos, e deixa a pessoa responsável ajustar o resultado.</p>
+    </div>
+  </details>
+
+  <details class="caso">
+    <summary>
+      <span class="caso-titulo">Ronda de medicação pelos quartos</span>
+      <span class="tag proposta">Proposta</span>
+      <span class="caso-sub">Caminho mais curto passando por todos os quartos: caixeiro viajante</span>
+    </summary>
+    <div class="caso-corpo">
+      <p><strong>Cenário futuro.</strong> Sugerir a ordem em que a enfermeira passa pelos quartos que têm dose para aplicar agora, minimizando o deslocamento. Visitar <em>n</em> quartos em qualquer ordem dá <em>n</em>! caminhos; escolher o menor é o <strong>problema do caixeiro viajante (TSP)</strong>, NP-difícil.</p>
+      <p><strong>Heurística proposta.</strong> Ordenar por número do quarto (O(n log n)), já que os quartos se distribuem em corredores, e refinar com o <strong>vizinho mais próximo</strong> (O(n²)): sempre ir ao quarto pendente mais perto. Não há garantia de ótimo, mas para dezenas de quartos o resultado é muito bom e o tempo é desprezível. A força bruta é impossível: veja a calculadora abaixo.</p>
+    </div>
+  </details>
+
+  <details class="caso">
+    <summary>
+      <span class="caso-titulo">Distribuição de residentes em quartos</span>
+      <span class="tag proposta">Proposta</span>
+      <span class="caso-sub">Empacotamento e coloração de grafos: NP-difíceis</span>
+    </summary>
+    <div class="caso-corpo">
+      <p><strong>Cenário futuro.</strong> Alocar residentes a quartos com capacidades diferentes e regras de compatibilidade (por exemplo, quem não deve dividir quarto). Sem as regras, é o <strong>empacotamento (bin packing)</strong>; com elas, lembra a <strong>coloração de grafos</strong>: ambos NP-difíceis.</p>
+      <p><strong>Aproximação proposta.</strong> Para o empacotamento, o algoritmo <strong>First-Fit Decreasing</strong> (ordenar do maior para o menor e colocar no primeiro quarto que couber) roda em O(n log n) e usa, no pior caso, cerca de 11/9 do número ótimo de quartos mais uma folga pequena (resultado conhecido na literatura). Uma aproximação com garantia, em vez de uma heurística sem prova.</p>
+    </div>
+  </details>
+
+  <div class="sim" aria-labelledby="cres-titulo">
+    <h4 id="cres-titulo">Calculadora: por que força bruta não funciona</h4>
+    <p style="margin:0;font-size:.9em">Escolha quantos itens (quartos, turnos, pessoas) e veja quantas operações cada crescimento exige, e quanto tempo levaria se cada operação custasse 1 nanossegundo.</p>
+    <div class="sim-barra">
+      <label for="cres-n" style="font-size:.9em">Itens (n): <b id="cres-n-v" class="mono">20</b></label>
+      <input type="range" id="cres-n" min="2" max="40" value="20" style="flex:1;min-width:160px">
+    </div>
+    <div class="tabela-wrap">
+      <table>
+        <thead><tr><th>Crescimento</th><th>Exemplo</th><th>Operações</th><th>Tempo (1 ns por operação)</th></tr></thead>
+        <tbody id="cres-corpo"></tbody>
+      </table>
+    </div>
+    <p class="sim-aviso">Polinomial (n²) continua instantâneo; exponencial (2<sup>n</sup>) e fatorial (n!) explodem. É por isso que usamos heurísticas e aproximações quando o problema é NP-difícil.</p>
+  </div>
+</section>
+
+<!-- ===================================================== RESUMO -->
+<section id="resumo">
+  <p class="rotulo">4 · Resumo das escolhas</p>
+  <h2>Tabela de decisões</h2>
+  <div class="tabela-wrap">
+    <table>
+      <thead><tr><th>Cenário</th><th>Modelo</th><th>Mecanismo no código</th><th>Custo</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>Formato do CPF no texto do OCR</td><td>Linguagem regular / AFD</td><td>regex</td><td class="mono">O(n)</td><td><span class="tag feito">Feito</span></td></tr>
+        <tr><td>Dígitos verificadores do CPF</td><td>Fora do alcance de AFD prático</td><td>aritmética</td><td class="mono">O(1)</td><td><span class="tag feito">Feito</span></td></tr>
+        <tr><td>Máscara de telefone e CPF</td><td>Transdutor finito</td><td>replace com regex</td><td class="mono">O(n)</td><td><span class="tag feito">Feito</span></td></tr>
+        <tr><td>Assinatura de arquivos</td><td>AFD de prefixos (trie)</td><td>comparação de bytes</td><td class="mono">O(p)</td><td><span class="tag feito">Feito</span></td></tr>
+        <tr><td>Mascarar dados em logs</td><td>União de palavras / AFD</td><td>regex</td><td class="mono">O(n)</td><td><span class="tag feito">Feito</span></td></tr>
+        <tr><td>Status da verificação</td><td>Máquina de estados finita</td><td>CHECK no banco</td><td class="mono">O(1)</td><td><span class="tag feito">Feito</span></td></tr>
+        <tr><td>Payload JSON do push</td><td>Autômato de pilha</td><td>parser do Python</td><td class="mono">O(n)</td><td><span class="tag feito">Feito</span></td></tr>
+        <tr><td>Balanceamento de templates</td><td>Autômato de pilha</td><td>Jinja (blocos); teste próprio proposto</td><td class="mono">O(n)</td><td><span class="tag parcial">Parcial</span></td></tr>
+        <tr><td>Consultas da tela Hoje</td><td>Análise de complexidade</td><td>consultas agrupadas</td><td class="mono">polinomial, menos idas ao banco</td><td><span class="tag parcial">Parcial</span></td></tr>
+        <tr><td>Escala de plantão</td><td>NP-difícil</td><td>guloso + busca local</td><td class="mono">polinomial (heurística)</td><td><span class="tag proposta">Proposta</span></td></tr>
+        <tr><td>Ronda pelos quartos</td><td>NP-difícil (TSP)</td><td>vizinho mais próximo</td><td class="mono">O(n²)</td><td><span class="tag proposta">Proposta</span></td></tr>
+        <tr><td>Quartos e residentes</td><td>NP-difícil (bin packing)</td><td>First-Fit Decreasing</td><td class="mono">O(n log n)</td><td><span class="tag proposta">Proposta</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ===================================================== DISCIPLINA -->
+<section id="disciplina">
+  <p class="rotulo">5 · Da teoria ao software</p>
+  <h2>Como a disciplina ajudou no PI</h2>
+  <div class="grade">
+    <div class="cartao">
+      <h4>Saber o limite de cada ferramenta</h4>
+      <p>A hierarquia de autômatos deu um critério claro: <strong>regex para formato</strong> (regular), <strong>analisador pronto para estruturas aninhadas</strong> (livre de contexto) e <strong>aritmética ou código</strong> para o que depende de contagem. Por isso o CPF usa regex e conta, e o JSON usa o parser.</p>
+    </div>
+    <div class="cartao">
+      <h4>Validar nas duas pontas</h4>
+      <p>Entender o que o navegador pode e não pode garantir levou à regra "o aviso no navegador é conforto, a validação do servidor é segurança". A conferência do CPF existe em JavaScript e em Python.</p>
+    </div>
+    <div class="cartao">
+      <h4>Falso positivo x falso negativo</h4>
+      <p>Pensar em linguagens aceitas e rejeitadas ajudou a escolher o rigor de cada regex: frouxa nos logs (melhor esconder demais) e rigorosa na identidade (melhor recusar na dúvida).</p>
+    </div>
+    <div class="cartao">
+      <h4>Contar o custo antes de crescer</h4>
+      <p>A análise de complexidade apontou o padrão "uma consulta por item" e justificou calcular a tela Hoje com consultas agrupadas.</p>
+    </div>
+    <div class="cartao">
+      <h4>Reconhecer o que é intratável</h4>
+      <p>Saber que escala de plantão, rota e alocação de quartos são NP-difíceis nos faz planejar heurísticas desde o início, em vez de prometer a "solução ótima" e travar o sistema.</p>
+    </div>
+    <div class="cartao">
+      <h4>Honestidade técnica</h4>
+      <p>Também aprendemos a dizer o que o modelo <em>não</em> cobre (ex.: o prefixo RIFF não prova que é WEBP). Neste site, tudo que ainda não existe está marcado como proposta.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===================================================== PRÓXIMOS PASSOS -->
+<section id="proximos">
+  <p class="rotulo">6 · Próximos passos</p>
+  <h2>O que vem a seguir</h2>
+  <ul class="tempo">
+    <li class="prox"><b>Checagem de balanceamento</b> de tags nos templates, como teste automático (autômato de pilha).</li>
+    <li class="prox"><b>Reconhecimento real de WEBP</b> (conferir também o marcador "WEBP" após o RIFF).</li>
+    <li class="prox"><b>Consultas agrupadas</b> também na ficha individual do residente.</li>
+    <li class="prox"><b>Escala de plantão</b> com heurística gulosa e busca local, com limite de tempo.</li>
+    <li class="prox"><b>Ordem de ronda</b> pelos quartos (vizinho mais próximo) e <b>distribuição em quartos</b> (First-Fit Decreasing).</li>
+    <li class="prox"><b>Medir:</b> registrar o tempo das telas principais para decidir otimizações com dados, e não por palpite.</li>
+  </ul>
+</section>
+
+</main>
+
+<footer>
+  <p><strong>GestCare</strong> · Projeto Integrador + Modelos Computacionais e Complexidade</p>
+  <p>Todos os dados de exemplo são inventados. O CPF do simulador é um número de teste conhecido, não pertence a uma pessoa real.</p>
+  <p>Trechos de código do repositório <a href="https://github.com/ArthurSouzaDeveloper/GestCare">ArthurSouzaDeveloper/GestCare</a> (branch main). · <a href="../">Ver a página de Estruturas de Dados</a></p>
+</footer>
+
+<script src="../script.js"></script>
+<script src="modelos.js"></script>
+</body>
+</html>
