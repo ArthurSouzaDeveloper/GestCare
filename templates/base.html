@@ -2,7 +2,7 @@
 <html lang="pt-BR" data-direcao="{{ 'B' if session.get('usuario_perfil') == 'responsavel' else 'A' }}">
 <head>
 {% include 'partials/_cabeca.html' %}
-  <title>{% block titulo %}GestCare{% endblock %} — GestCare</title>
+  <title>GestCare</title>
 </head>
 <body data-notificacoes="{{ 'equipe' if session.get('usuario_perfil') in ('enfermeiro', 'admin') else '' }}">
 
