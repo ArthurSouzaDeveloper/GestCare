@@ -59,7 +59,7 @@
       e mostrar a você dados de saúde do idoso, que são sensíveis.
     </p>
     <details class="termo-resumo">
-      <summary>Ler o termo completo aqui</summary>
+      <summary>Ler o termo completo (toque para abrir)</summary>
       {% with tipo='responsavel', casa_nome=(casa_preselecionar.nome if casa_preselecionar else None),
               contato_privacidade=(casa_preselecionar.contato_privacidade if casa_preselecionar else None) %}
         {% include 'termos/_texto_responsavel.html' %}

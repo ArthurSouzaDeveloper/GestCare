@@ -21,9 +21,18 @@
   </div>
   {% endif %}
 
-  <div class="secao termo-caixa" {% if modo == 'aceite' %}tabindex="0" aria-label="Texto do termo"{% endif %}>
+  {% if modo == 'aceite' %}
+  <details class="secao termo-resumo">
+    <summary>Ler o termo completo</summary>
+    <div class="termo-caixa">
+      {% include 'termos/_texto_' ~ tipo ~ '.html' %}
+    </div>
+  </details>
+  {% else %}
+  <div class="secao termo-caixa">
     {% include 'termos/_texto_' ~ tipo ~ '.html' %}
   </div>
+  {% endif %}
 
   {% if modo == 'aceite' %}
   <form method="POST" action="{{ url_for('aceitar_termo') }}" class="secao">
