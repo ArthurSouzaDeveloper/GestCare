@@ -1,5 +1,5 @@
 /* Service Worker — cache para funcionamento offline */
-const CACHE = 'gestcare-v4';
+const CACHE = 'gestcare-v5';
 const ASSETS = [
   '/',
   '/agenda',
@@ -11,7 +11,8 @@ const ASSETS = [
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',
   '/static/icons/apple-touch-icon.png',
-  '/static/icons/favicon-32.png'
+  '/static/icons/favicon-32.png',
+  '/static/icons/favicon.svg'
 ];
 
 self.addEventListener('install', e => {

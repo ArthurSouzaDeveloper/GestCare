@@ -1754,3 +1754,19 @@ a.stat-card:hover { border-color: var(--acao); }
 .selo-visao-alerta { background: #fdecc8; color: #6b4300; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .selo-visao-alerta { background: #4a3510; color: #f3d48b; } }
 :root[data-theme="dark"] .selo-visao-alerta { background: #4a3510; color: #f3d48b; }
+
+/* ── TERMO LGPD ────────────────────────────────────────── */
+.termo-pagina { max-width: 760px; }
+.termo-aviso { margin-bottom: 1rem; }
+.termo-caixa { line-height: 1.6; }
+.termo-pagina form .termo-caixa, .termo-caixa:focus-visible { outline-offset: 2px; }
+.termo-texto h2 { font-size: var(--txt-base, 1rem); font-weight: 600; margin: 1.1rem 0 .35rem; color: var(--texto-primario); }
+.termo-texto h2:first-child { margin-top: 0; }
+.termo-texto p, .termo-texto li { font-size: .92rem; color: var(--texto-secundario, inherit); }
+.termo-texto ul { padding-left: 1.2rem; margin: .3rem 0 .6rem; }
+.termo-texto li { margin-bottom: .2rem; }
+.termo-texto strong { color: var(--texto-primario); }
+.termo-resumo { margin: .25rem 0 .5rem; font-size: .88rem; }
+.termo-resumo summary { cursor: pointer; font-weight: 600; color: var(--cor-primaria); }
+.termo-resumo .termo-texto { max-height: 320px; overflow-y: auto; margin-top: .6rem; padding: .75rem .9rem;
+  border: 1px solid var(--cor-borda); border-radius: var(--raio-sm); background: var(--cor-fundo); }
