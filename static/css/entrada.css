@@ -1,0 +1,271 @@
+/* ══════════════════════════════════════════════════════════
+   GESTCARE — TELA DE ENTRADA E TRANSIÇÕES
+   Palco azul da marca em claro e escuro; o cartão do formulário
+   segue o tema. Três movimentos, todos com significado:
+   1. Abertura: a linha de pulso (a mesma do ícone) se desenha
+      pela tela e o nome sobe letra a letra.
+   2. Saída: ao entrar, uma cortina azul nasce do botão e cobre a tela.
+   3. Chegada: o painel abre com a mesma cortina, que sobe e revela
+      o conteúdo (html.gc-entrando, ligado em base.html).
+   Com prefers-reduced-motion, nada se move.
+   ══════════════════════════════════════════════════════════ */
+
+:root {
+  --palco-1: #0b1828;
+  --palco-2: #16293d;
+  --palco-linha: rgba(143, 192, 230, .38);
+  --palco-brilho: #b9dbf3;
+  --palco-texto: #ffffff;
+  --palco-texto-suave: rgba(255, 255, 255, .80);
+  --curva-saida: cubic-bezier(.16, 1, .3, 1);     /* desacelera: entra e assenta */
+  --curva-cortina: cubic-bezier(.76, 0, .24, 1);  /* acelera e freia: cortina */
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) { --palco-1: #050c14; --palco-2: #0f1e2e; }
+}
+:root[data-tema="escuro"] { --palco-1: #050c14; --palco-2: #0f1e2e; }
+
+.corpo-entrada {
+  padding-bottom: 0;
+  background: var(--palco-1);
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+.entrada {
+  position: relative;
+  isolation: isolate;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  background:
+    radial-gradient(120% 80% at 18% 0%, var(--palco-2) 0%, transparent 60%),
+    linear-gradient(180deg, var(--palco-2) 0%, var(--palco-1) 100%);
+  color: var(--palco-texto);
+  overflow: hidden;
+}
+
+/* ── Linha de pulso ─────────────────────────────────────── */
+.entrada-pulso {
+  position: absolute;
+  left: 0; right: 0;
+  top: calc(env(safe-area-inset-top, 0px) + 200px);
+  width: 100%;
+  height: 26vh;
+  z-index: -1;
+  pointer-events: none;
+}
+.entrada-pulso path { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.entrada-pulso-linha {
+  stroke: var(--palco-linha);
+  stroke-width: 1.5px;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+}
+.entrada-pulso-brilho {
+  stroke: var(--palco-brilho);
+  stroke-width: 2px;
+  stroke-dasharray: .06 .94;
+  stroke-dashoffset: .06;
+  opacity: 0;
+}
+
+/* ── Marca ──────────────────────────────────────────────── */
+.entrada-marca {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--esp-4);
+  padding: max(var(--esp-8), env(safe-area-inset-top)) max(var(--esp-5), var(--safe-left, 0px)) var(--esp-7);
+}
+.entrada-logo {
+  width: 56px; height: 56px;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #16293d;
+  display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, .55);
+}
+.entrada-logo .ti { width: 34px; height: 34px; stroke-width: 1.5; }
+
+.entrada-nome {
+  margin: 0;
+  font-family: var(--fonte);
+  font-size: clamp(3rem, 15vw, 7.5rem);
+  font-weight: 600;
+  line-height: .95;
+  letter-spacing: -0.045em;
+  color: var(--palco-texto);
+}
+.entrada-nome-letras { display: inline-flex; overflow: hidden; padding-bottom: .08em; }
+.entrada-nome-letras span { display: inline-block; }
+
+.entrada-casa {
+  display: inline-flex; align-items: center; gap: var(--esp-2);
+  margin: 0;
+  padding: 6px 12px;
+  border: 1px solid rgba(255, 255, 255, .22);
+  border-radius: var(--raio-pill);
+  font-size: var(--txt-sm);
+  font-weight: var(--peso-enfase);
+  color: var(--palco-texto-suave);
+}
+.entrada-casa .ti { width: 16px; height: 16px; }
+
+/* ── Cartão do formulário ───────────────────────────────── */
+.entrada-card {
+  align-self: end;
+  background: var(--superficie);
+  color: var(--texto-primario);
+  border-radius: 24px 24px 0 0;
+  padding: var(--esp-7) max(var(--esp-5), var(--safe-left, 0px)) max(var(--esp-7), env(safe-area-inset-bottom));
+  box-shadow: 0 -20px 60px -20px rgba(0, 0, 0, .5);
+}
+.entrada-titulo {
+  margin: 0 0 var(--esp-6);
+  font-size: var(--txt-xl);
+  font-weight: var(--peso-titulo);
+  letter-spacing: var(--ajuste-otico);
+  color: var(--texto-primario);
+}
+.entrada-card .pilha-alertas { margin-bottom: var(--esp-5); }
+
+.entrada-botao {
+  width: 100%;
+  min-height: 52px;
+  margin-top: var(--esp-2);
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--esp-2);
+  font-size: var(--txt-base);
+}
+.entrada-botao-seta { width: 20px; height: 20px; transition: transform .2s var(--curva-saida); }
+.entrada-botao:hover .entrada-botao-seta { transform: translateX(3px); }
+.entrada-botao[aria-busy="true"] { cursor: progress; }
+
+.entrada-rodape {
+  margin: var(--esp-6) 0 0;
+  font-size: var(--txt-md);
+  color: var(--texto-secundario);
+}
+.entrada-rodape a { white-space: nowrap; color: var(--acao); font-weight: var(--peso-enfase); text-decoration: underline; text-underline-offset: 3px; }
+
+/* ── Computador: marca à esquerda, cartão flutuando à direita ── */
+@media (min-width: 900px) {
+  .entrada {
+    grid-template-columns: 1fr minmax(380px, 440px);
+    grid-template-rows: 1fr;
+    align-items: center;
+    column-gap: var(--esp-9);
+    padding: var(--esp-9) clamp(var(--esp-9), 7vw, 120px);
+  }
+  .entrada-pulso { top: 50%; height: 44vh; transform: translateY(-50%); }
+  .entrada-marca { padding: 0; gap: var(--esp-6); }
+  .entrada-logo { width: 72px; height: 72px; border-radius: 18px; }
+  .entrada-logo .ti { width: 44px; height: 44px; }
+  .entrada-nome { font-size: clamp(5rem, 9.5vw, 9.5rem); }
+  .entrada-card {
+    align-self: center;
+    border-radius: 24px;
+    padding: var(--esp-9) var(--esp-8);
+    box-shadow: 0 40px 80px -30px rgba(0, 0, 0, .65);
+  }
+}
+
+/* ── Cortina de saída (login) ───────────────────────────── */
+.entrada-cortina {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--palco-2);
+  clip-path: circle(0 at var(--origem-x, 50%) var(--origem-y, 80%));
+  pointer-events: none;
+  visibility: hidden;
+}
+.entrada-cortina .entrada-logo { width: 72px; height: 72px; border-radius: 18px; opacity: 0; transform: scale(.85); }
+.entrada-cortina .entrada-logo .ti { width: 44px; height: 44px; }
+
+/* ══════════ MOVIMENTO (só quando a pessoa não pediu menos) ══════════ */
+@media (prefers-reduced-motion: no-preference) {
+
+  /* 1 · Abertura completa */
+  html:not(.entrada-curta) .entrada-pulso-linha {
+    stroke-dashoffset: 1;
+    animation: gc-desenha 1.6s var(--curva-saida) .1s forwards;
+  }
+  html:not(.entrada-curta) .entrada-marca .entrada-logo {
+    opacity: 0;
+    animation: gc-surge 0.7s var(--curva-saida) .15s forwards;
+  }
+  html:not(.entrada-curta) .entrada-nome-letras span {
+    transform: translateY(105%);
+    animation: gc-sobe .9s var(--curva-saida) calc(.25s + var(--i) * 45ms) forwards;
+  }
+  html:not(.entrada-curta) .entrada-casa {
+    opacity: 0;
+    animation: gc-aparece .6s ease-out .8s forwards;
+  }
+  html:not(.entrada-curta) .entrada-card {
+    opacity: 0;
+    transform: translateY(32px);
+    animation: gc-assenta .8s var(--curva-saida) .45s forwards;
+  }
+
+  /* Abertura curta (voltou com erro de senha): só o cartão assenta */
+  html.entrada-curta .entrada-card { animation: gc-aparece .25s ease-out both; }
+
+  /* Um pulso de luz percorre a linha de tempos em tempos */
+  .entrada-pulso-brilho { animation: gc-percorre 9s linear 1.8s infinite; }
+
+  /* 2 · Saída ao entrar */
+  .saindo .entrada-card {
+    animation: gc-recua .28s ease-in forwards;
+  }
+  .saindo .entrada-marca { transition: opacity .25s ease-in; opacity: 0; }
+  .saindo .entrada-cortina {
+    visibility: visible;
+    animation: gc-cobre .5s var(--curva-cortina) forwards;
+  }
+  .saindo .entrada-cortina .entrada-logo {
+    animation: gc-surge .35s var(--curva-saida) .2s forwards;
+  }
+}
+
+@keyframes gc-desenha { to { stroke-dashoffset: 0; } }
+@keyframes gc-sobe    { to { transform: translateY(0); } }
+@keyframes gc-aparece { from { opacity: 0; } to { opacity: 1; } }
+@keyframes gc-surge   { from { opacity: 0; transform: scale(.85); } to { opacity: 1; transform: scale(1); } }
+@keyframes gc-assenta { to { opacity: 1; transform: none; } }
+@keyframes gc-recua   { to { opacity: 0; transform: translateY(8px) scale(.98); } }
+@keyframes gc-cobre   { to { clip-path: circle(150vmax at var(--origem-x, 50%) var(--origem-y, 80%)); } }
+@keyframes gc-percorre {
+  0%   { opacity: 0;  stroke-dashoffset: .06; }
+  4%   { opacity: .9; }
+  30%  { opacity: .9; stroke-dashoffset: -.94; }
+  32%, 100% { opacity: 0; stroke-dashoffset: -.94; }
+}
+
+/* ══════════ 3 · CHEGADA NO PAINEL ══════════
+   html.gc-entrando é ligado antes da primeira pintura (base.html),
+   só logo depois de um login. A cortina começa cobrindo tudo,
+   igual ao fim da saída, e sobe revelando o painel. */
+@media (prefers-reduced-motion: no-preference) {
+  html.gc-entrando::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    pointer-events: none;
+    background:
+      url("../icons/favicon.svg") center / 72px 72px no-repeat,
+      var(--palco-2);
+    animation: gc-recolhe .7s var(--curva-cortina) .18s forwards;
+  }
+  html.gc-entrando .conteudo,
+  html.gc-entrando .publico {
+    animation: gc-chega .7s var(--curva-saida) .45s both;
+  }
+}
+@keyframes gc-recolhe { to { transform: translateY(-100%); } }
+@keyframes gc-chega   { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }

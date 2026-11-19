@@ -3,6 +3,7 @@
 <head>
 {% include 'partials/_cabeca.html' %}
   <title>GestCare</title>
+  {% include 'partials/_chegada.html' %}
 </head>
 <body data-notificacoes="{{ 'equipe' if session.get('usuario_perfil') in ('enfermeiro', 'admin') else '' }}">
 

@@ -3,6 +3,7 @@
 <head>
 {% include 'partials/_cabeca.html' %}
   <title>GestCare</title>
+  {% include 'partials/_chegada.html' %}
 </head>
 <body class="corpo-publico">
 
@@ -17,24 +18,6 @@
       <div class="publico-marca-topo">
         <span class="logo-mark"><svg class="ti" aria-hidden="true"><use href="#ti-heartbeat"/></svg></span>
         <span class="logo">GestCare</span>
-      </div>
-
-      <div class="publico-marca-corpo">
-        <p class="publico-marca-frase">Cuidar de quem um dia cuidou de você.</p>
-        <dl class="publico-marca-lista">
-          <div>
-            <dt>Agenda de medicação</dt>
-            <dd>Por horário, com registro de quem administrou.</dd>
-          </div>
-          <div>
-            <dt>Ficha do morador</dt>
-            <dd>Condições, alergias, exames e evoluções no mesmo lugar.</dd>
-          </div>
-          <div>
-            <dt>Portal da família</dt>
-            <dd>O que aconteceu no dia, sem jargão clínico.</dd>
-          </div>
-        </dl>
       </div>
 
       {% block marca_rodape %}{% endblock %}
