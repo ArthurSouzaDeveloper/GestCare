@@ -1,74 +1,174 @@
-{% extends "base_publico.html" %}
-{% block titulo %}Entrar{% endblock %}
+<!DOCTYPE html>
+<html lang="pt-BR" data-direcao="A">
+<head>
+{% include 'partials/_cabeca.html' %}
+  <title>GestCare</title>
+  {# Abertura completa só na primeira visita da aba; depois de um erro de
+     senha a tela volta sem repetir a animação inteira. Decidido antes da
+     primeira pintura para não piscar. #}
+  <script>
+    (function () {
+      var h = document.documentElement;
+      try {
+        sessionStorage.removeItem('gc-entrando');
+        if (sessionStorage.getItem('gc-abertura')) h.classList.add('entrada-curta');
+        sessionStorage.setItem('gc-abertura', '1');
+      } catch (e) { /* armazenamento bloqueado: mostra a abertura */ }
+    })();
+  </script>
+</head>
+<body class="corpo-entrada">
 
-{% block marca_rodape %}
-  {% if casa_preselecionar %}
-  <p class="publico-marca-casa">
-    <svg class="ti" aria-hidden="true"><use href="#ti-building-community"/></svg>
-    {{ casa_preselecionar.nome }}
-  </p>
-  {% endif %}
-{% endblock %}
+{% include 'partials/_icones.html' %}
 
-{% block conteudo %}
-<h1 class="titulo-pagina">Entrar</h1>
-<p class="subtitulo esp-y-6">Acesso da equipe e das famílias da casa.</p>
+<a class="pular-para-conteudo" href="#email">Pular para o formulário</a>
 
-<form method="POST" novalidate>
-  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-  {% if casa_preselecionar %}
-  <input type="hidden" name="casa_id" value="{{ casa_preselecionar.id }}">
-  {% endif %}
+<main class="entrada" id="conteudo">
 
-  <div class="form-grupo">
-    <label class="form-label" for="email">E-mail</label>
-    <input type="email" id="email" name="email" class="form-input"
-           placeholder="nome@casa.com.br" autocomplete="username"
-           required autofocus>
+  {# Linha de pulso: a mesma do ícone da marca, esticada pela tela. #}
+  <svg class="entrada-pulso" viewBox="0 0 1440 240" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+    <path class="entrada-pulso-linha" pathLength="1" vector-effect="non-scaling-stroke"
+          d="M0 150 H740 l18 0 l14 -16 l14 16 h18 l12 24 l20 -118 l20 132 l12 -38 h22 l18 -14 l18 14 H1440"/>
+    <path class="entrada-pulso-brilho" pathLength="1" vector-effect="non-scaling-stroke"
+          d="M0 150 H740 l18 0 l14 -16 l14 16 h18 l12 24 l20 -118 l20 132 l12 -38 h22 l18 -14 l18 14 H1440"/>
+  </svg>
+
+  <div class="entrada-marca">
+    <span class="entrada-logo" aria-hidden="true">
+      <svg class="ti"><use href="#ti-heartbeat"/></svg>
+    </span>
+    <h1 class="entrada-nome">
+      <span class="so-leitor-tela">GestCare</span>
+      <span class="entrada-nome-letras" aria-hidden="true">{% for letra in 'GestCare' %}<span style="--i:{{ loop.index0 }}">{{ letra }}</span>{% endfor %}</span>
+    </h1>
+    {% if casa_preselecionar %}
+    <p class="entrada-casa">
+      <svg class="ti" aria-hidden="true"><use href="#ti-building-community"/></svg>
+      {{ casa_preselecionar.nome }}
+    </p>
+    {% endif %}
   </div>
 
-  <div class="form-grupo">
-    <label class="form-label" for="senha">Senha</label>
-    <div class="campo-com-acao">
-      <input type="password" id="senha" name="senha" class="form-input"
-             autocomplete="current-password" required>
-      <button type="button" class="campo-acao" id="btn-mostrar-senha"
-              aria-controls="senha" aria-pressed="false">
-        <svg class="ti" aria-hidden="true"><use href="#ti-eye"/></svg>
-        <span class="so-leitor-tela">Mostrar senha</span>
+  <section class="entrada-card" aria-labelledby="entrada-titulo">
+    <h2 class="entrada-titulo" id="entrada-titulo">Entrar</h2>
+
+    {% with mensagens = get_flashed_messages(with_categories=true) %}
+      {% if mensagens %}
+        <div class="pilha-alertas" role="status" aria-live="polite">
+          {% for categoria, msg in mensagens %}
+            {% set tom = {'sucesso': 'sucesso', 'erro': 'erro', 'alerta': 'alerta', 'info': 'info'}.get(categoria, 'info') %}
+            <div class="alerta alerta-{{ tom }}">
+              <svg class="ti alerta-icone" aria-hidden="true"><use href="#ti-{{
+                {'sucesso':'circle-check','erro':'alert-hexagon','alerta':'alert-triangle','info':'info-circle'}[tom] }}"/></svg>
+              <span>{{ msg }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <form method="POST" id="form-entrar" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% if casa_preselecionar %}
+      <input type="hidden" name="casa_id" value="{{ casa_preselecionar.id }}">
+      {% endif %}
+
+      <div class="form-grupo">
+        <label class="form-label" for="email">E-mail</label>
+        <input type="email" id="email" name="email" class="form-input"
+               placeholder="nome@casa.com.br" autocomplete="username"
+               required autofocus>
+      </div>
+
+      <div class="form-grupo">
+        <label class="form-label" for="senha">Senha</label>
+        <div class="campo-com-acao">
+          <input type="password" id="senha" name="senha" class="form-input"
+                 autocomplete="current-password" required>
+          <button type="button" class="campo-acao" id="btn-mostrar-senha"
+                  aria-controls="senha" aria-pressed="false">
+            <svg class="ti" aria-hidden="true"><use href="#ti-eye"/></svg>
+            <span class="so-leitor-tela">Mostrar senha</span>
+          </button>
+        </div>
+      </div>
+
+      <button type="submit" class="botao botao-primario entrada-botao" id="btn-entrar">
+        <span class="entrada-botao-texto">Entrar</span>
+        <svg class="ti entrada-botao-seta" aria-hidden="true"><use href="#ti-chevron-right"/></svg>
       </button>
-    </div>
+    </form>
+
+    <p class="entrada-rodape">
+      Familiar de um morador?
+      {% if casa_preselecionar %}
+      <a href="{{ url_for('cadastro_responsavel_casa', slug=casa_preselecionar.slug) }}">Criar conta da família</a>
+      {% else %}
+      <a href="{{ url_for('cadastro_responsavel') }}">Criar conta da família</a>
+      {% endif %}
+    </p>
+  </section>
+
+  {# Cortina de saída: cobre a tela a partir do botão e entrega para o painel,
+     que começa com a mesma cortina e a recolhe para cima. #}
+  <div class="entrada-cortina" aria-hidden="true">
+    <span class="entrada-logo"><svg class="ti"><use href="#ti-heartbeat"/></svg></span>
   </div>
+</main>
 
-  <button type="submit" class="botao botao-primario botao-bloco">Entrar</button>
-</form>
-
-<p class="publico-rodape">
-  É familiar de um morador e ainda não tem conta?
-  {% if casa_preselecionar %}
-  <a href="{{ url_for('cadastro_responsavel_casa', slug=casa_preselecionar.slug) }}">Criar conta da família</a>
-  {% else %}
-  <a href="{{ url_for('cadastro_responsavel') }}">Criar conta da família</a>
-  {% endif %}
-</p>
-{% endblock %}
-
-{% block scripts %}
+<script src="{{ url_for('static', filename='js/app.js') }}?v={{ versao_assets }}"></script>
 <script>
 (function () {
-  const campo = document.getElementById('senha');
-  const botao = document.getElementById('btn-mostrar-senha');
-  if (!campo || !botao) return;
-  const rotulo = botao.querySelector('.so-leitor-tela');
-  const uso    = botao.querySelector('use');
-  botao.addEventListener('click', function () {
-    const oculto = campo.type === 'password';
-    campo.type = oculto ? 'text' : 'password';
-    botao.setAttribute('aria-pressed', String(oculto));
-    rotulo.textContent = oculto ? 'Ocultar senha' : 'Mostrar senha';
-    uso.setAttribute('href', oculto ? '#ti-eye-off' : '#ti-eye');
-    campo.focus();
+  /* Mostrar/ocultar senha */
+  var campo = document.getElementById('senha');
+  var olho  = document.getElementById('btn-mostrar-senha');
+  if (campo && olho) {
+    var rotulo = olho.querySelector('.so-leitor-tela');
+    var uso    = olho.querySelector('use');
+    olho.addEventListener('click', function () {
+      var oculto = campo.type === 'password';
+      campo.type = oculto ? 'text' : 'password';
+      olho.setAttribute('aria-pressed', String(oculto));
+      rotulo.textContent = oculto ? 'Ocultar senha' : 'Mostrar senha';
+      uso.setAttribute('href', oculto ? '#ti-eye-off' : '#ti-eye');
+      campo.focus();
+    });
+  }
+
+  /* Transição de saída: a cortina nasce do botão, cobre a tela e o
+     formulário segue. Sem movimento reduzido, envia na hora. */
+  var form  = document.getElementById('form-entrar');
+  var botao = document.getElementById('btn-entrar');
+  if (!form || !botao) return;
+  var enviando = false;
+  form.addEventListener('submit', function (e) {
+    if (enviando) { e.preventDefault(); return; }
+    enviando = true;
+    botao.setAttribute('aria-busy', 'true');
+    botao.querySelector('.entrada-botao-texto').textContent = 'Entrando…';
+    try { sessionStorage.setItem('gc-entrando', String(Date.now())); } catch (err) {}
+
+    var calmo = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (calmo) return;   /* envio normal, sem animação */
+
+    e.preventDefault();
+    var r = botao.getBoundingClientRect();
+    var main = document.querySelector('.entrada');
+    main.style.setProperty('--origem-x', (r.left + r.width / 2) + 'px');
+    main.style.setProperty('--origem-y', (r.top + r.height / 2) + 'px');
+    document.body.classList.add('saindo');
+    setTimeout(function () { HTMLFormElement.prototype.submit.call(form); }, 480);
+  });
+
+  /* Voltar pelo histórico (bfcache) devolve a tela intacta */
+  window.addEventListener('pageshow', function (ev) {
+    if (!ev.persisted) return;
+    enviando = false;
+    document.body.classList.remove('saindo');
+    botao.removeAttribute('aria-busy');
+    botao.querySelector('.entrada-botao-texto').textContent = 'Entrar';
   });
 })();
 </script>
-{% endblock %}
+</body>
+</html>

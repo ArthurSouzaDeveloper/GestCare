@@ -1,0 +1,16 @@
+{# Chegada depois do login: se a tela de entrada acabou de enviar o
+   formulário (há menos de 15 s), o painel abre com a cortina azul
+   subindo (static/css/entrada.css). Roda antes da primeira pintura. #}
+  <script>
+    (function () {
+      try {
+        var t = Number(sessionStorage.getItem('gc-entrando'));
+        sessionStorage.removeItem('gc-entrando');
+        if (t && Date.now() - t < 15000) {
+          var h = document.documentElement;
+          h.classList.add('gc-entrando');
+          setTimeout(function () { h.classList.remove('gc-entrando'); }, 1600);
+        }
+      } catch (e) { /* sem armazenamento: abre direto */ }
+    })();
+  </script>

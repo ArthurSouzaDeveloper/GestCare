@@ -1535,28 +1535,8 @@ button, input, select, textarea { font-family: inherit; }
   gap: var(--esp-6);
 }
 .publico-marca-topo { display: flex; align-items: center; gap: var(--esp-3); }
-.publico-marca-corpo { display: flex; flex-direction: column; gap: var(--esp-6); }
 
-.publico-marca-frase {
-  font-size: var(--txt-lg);
-  font-weight: var(--peso-titulo);
-  line-height: var(--altura-titulo);
-  max-width: 22ch;
-}
 
-.publico-marca-lista { display: flex; flex-direction: column; gap: var(--esp-4); margin: 0; }
-.publico-marca-lista div { display: flex; flex-direction: column; gap: 2px; }
-.publico-marca-lista dt {
-  font-size: var(--txt-md);
-  font-weight: var(--peso-enfase);
-  color: var(--texto-sobre-marca);
-}
-.publico-marca-lista dd {
-  margin: 0;
-  font-size: var(--txt-sm);
-  color: rgba(255,255,255,.78);
-  line-height: 1.45;
-}
 
 .publico-marca-casa {
   display: flex; align-items: center; gap: var(--esp-2);

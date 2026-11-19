@@ -1,11 +1,12 @@
 /* Service Worker — cache para funcionamento offline */
-const CACHE = 'gestcare-v5';
+const CACHE = 'gestcare-v6';
 const ASSETS = [
   '/',
   '/agenda',
   '/static/css/style.css',
   '/static/css/direcoes.css',
   '/static/css/portal.css',
+  '/static/css/entrada.css',
   '/static/js/app.js',
   '/static/manifest.json',
   '/static/icons/icon-192.png',
