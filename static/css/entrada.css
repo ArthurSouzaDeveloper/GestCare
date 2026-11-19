@@ -148,7 +148,7 @@
   font-size: var(--txt-md);
   color: var(--texto-secundario);
 }
-.entrada-rodape a { color: var(--acao); font-weight: var(--peso-enfase); text-decoration: underline; text-underline-offset: 3px; }
+.entrada-rodape a { white-space: nowrap; color: var(--acao); font-weight: var(--peso-enfase); text-decoration: underline; text-underline-offset: 3px; }
 
 /* ── Computador: marca à esquerda, cartão flutuando à direita ── */
 @media (min-width: 900px) {
