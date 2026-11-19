@@ -1,0 +1,49 @@
+{% extends ('base.html' if session.get('usuario_id') else 'base_publico.html') %}
+{% block titulo %}Termo de uso e privacidade{% endblock %}
+
+{% block conteudo %}
+<div class="termo-pagina">
+  <h1 class="titulo-pagina"><svg class="ti" aria-hidden="true"><use href="#ti-shield-check"/></svg> {{ termo.titulo }}</h1>
+  <p class="subtitulo">Lei Geral de Proteção de Dados (Lei nº 13.709/2018) · Versão {{ termo.versao }}, em vigor desde {{ termo.vigencia }}</p>
+
+  {% if modo == 'aceite' %}
+  <div class="alerta alerta-info termo-aviso">
+    <svg class="ti alerta-icone" aria-hidden="true"><use href="#ti-info-circle"/></svg>
+    <span>
+      {% if versao_anterior %}
+        O termo foi atualizado (você tinha aceitado a versão {{ versao_anterior }}). Leia e aceite a nova versão para continuar.
+      {% elif tipo == 'instituicao' %}
+        Antes de usar o sistema, o administrador precisa ler e aceitar este termo em nome da instituição.
+      {% else %}
+        Antes de continuar, leia e aceite o termo de uso e consentimento.
+      {% endif %}
+    </span>
+  </div>
+  {% endif %}
+
+  <div class="secao termo-caixa" {% if modo == 'aceite' %}tabindex="0" aria-label="Texto do termo"{% endif %}>
+    {% include 'termos/_texto_' ~ tipo ~ '.html' %}
+  </div>
+
+  {% if modo == 'aceite' %}
+  <form method="POST" action="{{ url_for('aceitar_termo') }}" class="secao">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% if proximo %}<input type="hidden" name="proximo" value="{{ proximo }}">{% endif %}
+    <label class="ident-check">
+      <input type="checkbox" name="aceite_termo" value="sim" required>
+      <span>
+        {% if tipo == 'instituicao' %}
+          Li e aceito o termo em nome de {{ casa_nome or 'minha instituição' }} e declaro ter autorização para isso.
+        {% else %}
+          Li e aceito o termo e consinto com o tratamento dos meus dados pessoais como descrito acima.
+        {% endif %}
+      </span>
+    </label>
+    <div class="form-botoes">
+      <button type="submit" class="botao botao-primario">Aceitar e continuar</button>
+      <a href="{{ url_for('logout') }}" class="botao botao-secundario">Não aceito, sair</a>
+    </div>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

@@ -655,6 +655,30 @@ def init_db():
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_acessos_verif '
                        'ON acessos_identidade (verificacao_id)')
 
+        # LGPD: registro de cada aceite do termo (quem, quando, qual versão, de onde).
+        # Sem FK para usuarios: a prova do aceite precisa sobreviver à exclusão da conta.
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS aceites_termo (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                usuario_id INTEGER NOT NULL,
+                casa_id INTEGER,
+                tipo_termo TEXT NOT NULL CHECK (tipo_termo IN ('responsavel', 'instituicao')),
+                versao_termo TEXT NOT NULL,
+                hash_texto TEXT NOT NULL,
+                origem TEXT NOT NULL,
+                aceito_em TEXT NOT NULL DEFAULT (datetime('now', 'localtime')),
+                ip TEXT,
+                navegador TEXT
+            )
+        ''')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_aceites_usuario '
+                       'ON aceites_termo (usuario_id, tipo_termo, versao_termo)')
+        # Contato de privacidade da casa (encarregado/DPO), mostrado no termo.
+        # Coluna nova e opcional: bancos antigos continuam funcionando sem ela preenchida.
+        colunas_casa = [r[1] for r in cursor.execute("PRAGMA table_info(casas)").fetchall()]
+        if 'contato_privacidade' not in colunas_casa:
+            cursor.execute('ALTER TABLE casas ADD COLUMN contato_privacidade TEXT')
+
         # Índices para a lista, a busca e as contagens continuarem rápidas com
         # milhares de pacientes. Só aceleram consultas: não mudam nenhum dado.
         for nome_idx, tabela, colunas in [
@@ -824,6 +848,127 @@ def buscar_paciente_da_casa(conn, paciente_id):
         'SELECT * FROM pacientes WHERE id = ? AND casa_id = ?',
         (paciente_id, casa_id_atual())
     ).fetchone()
+
+
+# ---------------------------------------------------------------------------
+# LGPD: termo de uso e consentimento (Lei 13.709/2018)
+# O texto fica em templates/termos/_texto_<tipo>.html. Ao mudar o texto, suba a
+# versão abaixo: todos os responsáveis/administradores aceitam de novo na entrada.
+# ---------------------------------------------------------------------------
+TERMOS = {
+    'responsavel': {'versao': '1.0', 'vigencia': '19/11/2026',
+                    'titulo': 'Termo de Uso e Consentimento — Responsável ou familiar'},
+    'instituicao': {'versao': '1.0', 'vigencia': '19/11/2026',
+                    'titulo': 'Termo de Uso e Tratamento de Dados — Instituição'},
+}
+# Perfil que precisa ter aceito cada termo para usar o sistema.
+TERMO_POR_PERFIL = {'responsavel': 'responsavel', 'admin': 'instituicao'}
+app.config.setdefault('TERMO_OBRIGATORIO', True)
+_PREFIXOS_SEM_TERMO = ('/static/', '/termo', '/logout', '/login', '/entrar/',
+                       '/favicon.ico', '/push/')
+
+
+def hash_termo(tipo):
+    """SHA-256 do arquivo do texto: prova de qual redação exata foi aceita."""
+    caminho = os.path.join(app.root_path, 'templates', 'termos', f'_texto_{tipo}.html')
+    with open(caminho, 'rb') as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
+def registrar_aceite(conn, usuario_id, casa_id, tipo, origem):
+    termo = TERMOS[tipo]
+    conn.execute(
+        'INSERT INTO aceites_termo (usuario_id, casa_id, tipo_termo, versao_termo, hash_texto, '
+        'origem, ip, navegador) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        (usuario_id, casa_id, tipo, termo['versao'], hash_termo(tipo), origem,
+         request.remote_addr, (request.user_agent.string or '')[:300])
+    )
+    session['termo_aceito'] = f"{usuario_id}:{tipo}:{termo['versao']}"
+    log.info('termo_aceito', extra={'gc_action': 'termo_aceito', 'gc_user_id': usuario_id,
+             'gc_casa_id': casa_id})
+
+
+def ultimo_aceite(conn, usuario_id, tipo):
+    return conn.execute(
+        'SELECT * FROM aceites_termo WHERE usuario_id = ? AND tipo_termo = ? '
+        'ORDER BY id DESC LIMIT 1', (usuario_id, tipo)
+    ).fetchone()
+
+
+def _dados_termo(conn, tipo, casa_id=None):
+    casa = None
+    if casa_id:
+        casa = conn.execute('SELECT nome, contato_privacidade FROM casas WHERE id = ?',
+                            (casa_id,)).fetchone()
+    return dict(tipo=tipo, termo=TERMOS[tipo],
+                casa_nome=casa['nome'] if casa else None,
+                contato_privacidade=(casa['contato_privacidade'] if casa else None) or None)
+
+
+@app.before_request
+def exigir_aceite_termo():
+    """Responsável e administrador da casa só usam o sistema depois de aceitar a
+    versão atual do termo. Vale para contas antigas (criadas antes do termo) e
+    sempre que a versão do texto subir."""
+    perfil = session.get('usuario_perfil')
+    tipo = TERMO_POR_PERFIL.get(perfil)
+    if (not tipo or not session.get('usuario_id') or not app.config.get('TERMO_OBRIGATORIO')
+            or request.path.startswith(_PREFIXOS_SEM_TERMO)):
+        return None
+    esperado = f"{session['usuario_id']}:{tipo}:{TERMOS[tipo]['versao']}"
+    if session.get('termo_aceito') == esperado:
+        return None
+    with get_db() as conn:
+        aceite = conn.execute(
+            'SELECT 1 FROM aceites_termo WHERE usuario_id = ? AND tipo_termo = ? AND versao_termo = ?',
+            (session['usuario_id'], tipo, TERMOS[tipo]['versao'])
+        ).fetchone()
+    if aceite:
+        session['termo_aceito'] = esperado
+        return None
+    return redirect(url_for('aceitar_termo', proximo=request.full_path if request.method == 'GET' else None))
+
+
+@app.route('/termo/<tipo>')
+def ver_termo(tipo):
+    """Texto completo do termo, aberto a qualquer pessoa (inclusive antes do cadastro)."""
+    if tipo not in TERMOS:
+        return render_template('erro.html', codigo=404, mensagem='Página não encontrada.'), 404
+    casa_id = request.args.get('casa', type=int) or session.get('casa_id')
+    with get_db() as conn:
+        dados = _dados_termo(conn, tipo, casa_id)
+    return render_template('termos/termo.html', modo='leitura', **dados)
+
+
+@app.route('/termo/aceitar', methods=['GET', 'POST'])
+@login_obrigatorio
+def aceitar_termo():
+    tipo = TERMO_POR_PERFIL.get(session.get('usuario_perfil'))
+    if not tipo:
+        return redirect(url_for('index'))
+    proximo = request.values.get('proximo') or ''
+    # Só volta para caminhos internos (evita redirecionar para outro site).
+    if not proximo.startswith('/') or proximo.startswith('//') or proximo.startswith('/termo'):
+        proximo = ''
+    with get_db() as conn:
+        anterior = ultimo_aceite(conn, session['usuario_id'], tipo)
+        if request.method == 'POST':
+            if request.form.get('aceite_termo') != 'sim':
+                flash('Para continuar, marque que leu e aceita o termo.', 'erro')
+            else:
+                origem = 'nova_versao' if anterior else 'primeiro_acesso'
+                registrar_aceite(conn, session['usuario_id'], session.get('casa_id'), tipo, origem)
+                flash('Termo aceito. Obrigado!', 'sucesso')
+                return redirect(proximo or url_for('index'))
+        dados = _dados_termo(conn, tipo, session.get('casa_id'))
+    return render_template('termos/termo.html', modo='aceite', proximo=proximo,
+                           versao_anterior=anterior['versao_termo'] if anterior else None, **dados)
+
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(os.path.join(app.static_folder, 'icons'), 'favicon.ico',
+                               mimetype='image/vnd.microsoft.icon', max_age=86400)
 
 
 def gerar_slug(nome):
@@ -1116,17 +1261,25 @@ def _processar_cadastro_responsavel(casas=None, casa_preselecionar=None):
 
         if not nome or not email or not cpf or not senha or not casa_id:
             flash('Preencha todos os campos obrigatórios.', 'erro')
-            return render_template('responsavel_cadastro.html', casas=casas, casa_preselecionar=casa_preselecionar)
+            return render_template('responsavel_cadastro.html', casas=casas, casa_preselecionar=casa_preselecionar,
+                           termo_versao=TERMOS['responsavel']['versao'])
         if not cpf_valido(cpf):
             flash('CPF inválido. Confira os números digitados.', 'erro')
-            return render_template('responsavel_cadastro.html', casas=casas, casa_preselecionar=casa_preselecionar)
+            return render_template('responsavel_cadastro.html', casas=casas, casa_preselecionar=casa_preselecionar,
+                           termo_versao=TERMOS['responsavel']['versao'])
         cpf = formatar_cpf(cpf)
         if len(senha) < 6:
             flash('A senha deve ter pelo menos 6 caracteres.', 'erro')
-            return render_template('responsavel_cadastro.html', casas=casas, casa_preselecionar=casa_preselecionar)
+            return render_template('responsavel_cadastro.html', casas=casas, casa_preselecionar=casa_preselecionar,
+                           termo_versao=TERMOS['responsavel']['versao'])
         if senha != senha2:
             flash('As senhas não coincidem.', 'erro')
-            return render_template('responsavel_cadastro.html', casas=casas, casa_preselecionar=casa_preselecionar)
+            return render_template('responsavel_cadastro.html', casas=casas, casa_preselecionar=casa_preselecionar,
+                           termo_versao=TERMOS['responsavel']['versao'])
+        if dados.get('aceite_termo') != 'sim':
+            flash('Para criar a conta, leia e aceite o termo de uso e consentimento (LGPD).', 'erro')
+            return render_template('responsavel_cadastro.html', casas=casas, casa_preselecionar=casa_preselecionar,
+                           termo_versao=TERMOS['responsavel']['versao'])
 
         with get_db() as conn:
             casa = conn.execute(
@@ -1134,7 +1287,8 @@ def _processar_cadastro_responsavel(casas=None, casa_preselecionar=None):
             ).fetchone()
         if not casa:
             flash('Instituição inválida. Selecione novamente.', 'erro')
-            return render_template('responsavel_cadastro.html', casas=casas, casa_preselecionar=casa_preselecionar)
+            return render_template('responsavel_cadastro.html', casas=casas, casa_preselecionar=casa_preselecionar,
+                           termo_versao=TERMOS['responsavel']['versao'])
 
         try:
             with get_db() as conn:
@@ -1143,11 +1297,14 @@ def _processar_cadastro_responsavel(casas=None, casa_preselecionar=None):
                     VALUES (?, ?, ?, 'responsavel', ?, ?)
                 ''', (nome, email, hash_senha(senha), cpf, casa_id))
                 usuario_id = cursor.lastrowid
+                # Mesma transação: não existe conta de responsável sem o aceite registrado.
+                registrar_aceite(conn, usuario_id, casa['id'], 'responsavel', 'cadastro')
         except sqlite3.IntegrityError:
             log.warning('cadastro_email_duplicado', extra={'gc_action': 'cadastro_responsavel',
                         'gc_casa_id': casa_id})
             flash('Este e-mail já está cadastrado.', 'erro')
-            return render_template('responsavel_cadastro.html', casas=casas, casa_preselecionar=casa_preselecionar)
+            return render_template('responsavel_cadastro.html', casas=casas, casa_preselecionar=casa_preselecionar,
+                           termo_versao=TERMOS['responsavel']['versao'])
 
         log.info('cadastro_responsavel_ok', extra={'gc_action': 'cadastro_responsavel',
                  'gc_user_id': usuario_id, 'gc_casa_id': casa['id']})
@@ -1162,7 +1319,8 @@ def _processar_cadastro_responsavel(casas=None, casa_preselecionar=None):
         flash(f'Conta criada com sucesso, {nome}! Agora informe o CPF/RG do idoso para continuar.', 'sucesso')
         return redirect(url_for('vincular_idoso'))
 
-    return render_template('responsavel_cadastro.html', casas=casas, casa_preselecionar=casa_preselecionar)
+    return render_template('responsavel_cadastro.html', casas=casas, casa_preselecionar=casa_preselecionar,
+                           termo_versao=TERMOS['responsavel']['versao'])
 
 
 @app.route('/responsavel/vincular-idoso', methods=['GET', 'POST'])
@@ -1226,6 +1384,8 @@ def meu_perfil():
         casa = None
         if eh_admin:
             casa = conn.execute('SELECT * FROM casas WHERE id = ?', (casa_id_atual(),)).fetchone()
+        tipo_termo = TERMO_POR_PERFIL.get(session.get('usuario_perfil'))
+        aceite = ultimo_aceite(conn, usuario_id, tipo_termo) if tipo_termo else None
 
         if request.method == 'POST':
             dados = request.form
@@ -1235,32 +1395,33 @@ def meu_perfil():
             senha_nova  = dados.get('senha_nova', '')
             senha_nova2 = dados.get('confirmar_senha_nova', '')
             nome_casa   = dados.get('nome_casa', '').strip()
+            contato_priv = dados.get('contato_privacidade', '').strip()[:200]
 
             if not nome or not email:
                 flash('Nome e e-mail são obrigatórios.', 'erro')
-                return render_template('meu_perfil.html', usuario=usuario, casa=casa)
+                return render_template('meu_perfil.html', usuario=usuario, casa=casa, aceite=aceite, tipo_termo=tipo_termo)
             if eh_admin and not nome_casa:
                 flash('Informe o nome da casa.', 'erro')
-                return render_template('meu_perfil.html', usuario=usuario, casa=casa)
+                return render_template('meu_perfil.html', usuario=usuario, casa=casa, aceite=aceite, tipo_termo=tipo_termo)
 
             quer_trocar_senha = bool(senha_nova or senha_nova2)
             email_mudou = email.lower() != usuario['email'].lower()
 
             if (quer_trocar_senha or email_mudou) and not senha_atual:
                 flash('Informe sua senha atual para confirmar a alteração de e-mail ou senha.', 'erro')
-                return render_template('meu_perfil.html', usuario=usuario, casa=casa)
+                return render_template('meu_perfil.html', usuario=usuario, casa=casa, aceite=aceite, tipo_termo=tipo_termo)
 
             if (quer_trocar_senha or email_mudou) and not verificar_senha(senha_atual, usuario['senha']):
                 flash('Senha atual incorreta.', 'erro')
-                return render_template('meu_perfil.html', usuario=usuario, casa=casa)
+                return render_template('meu_perfil.html', usuario=usuario, casa=casa, aceite=aceite, tipo_termo=tipo_termo)
 
             if quer_trocar_senha:
                 if len(senha_nova) < 6:
                     flash('A nova senha deve ter pelo menos 6 caracteres.', 'erro')
-                    return render_template('meu_perfil.html', usuario=usuario, casa=casa)
+                    return render_template('meu_perfil.html', usuario=usuario, casa=casa, aceite=aceite, tipo_termo=tipo_termo)
                 if senha_nova != senha_nova2:
                     flash('As senhas novas não coincidem.', 'erro')
-                    return render_template('meu_perfil.html', usuario=usuario, casa=casa)
+                    return render_template('meu_perfil.html', usuario=usuario, casa=casa, aceite=aceite, tipo_termo=tipo_termo)
 
             try:
                 if quer_trocar_senha:
@@ -1275,17 +1436,18 @@ def meu_perfil():
                     )
             except sqlite3.IntegrityError:
                 flash('Este e-mail já está em uso por outra conta.', 'erro')
-                return render_template('meu_perfil.html', usuario=usuario, casa=casa)
+                return render_template('meu_perfil.html', usuario=usuario, casa=casa, aceite=aceite, tipo_termo=tipo_termo)
 
             if eh_admin:
-                conn.execute('UPDATE casas SET nome = ? WHERE id = ?', (nome_casa, casa_id_atual()))
+                conn.execute('UPDATE casas SET nome = ?, contato_privacidade = ? WHERE id = ?',
+                             (nome_casa, contato_priv or None, casa_id_atual()))
                 session['casa_nome'] = nome_casa
 
             session['usuario_nome'] = nome
             flash('Perfil atualizado com sucesso!', 'sucesso')
             return redirect(url_for('meu_perfil'))
 
-    return render_template('meu_perfil.html', usuario=usuario, casa=casa)
+    return render_template('meu_perfil.html', usuario=usuario, casa=casa, aceite=aceite, tipo_termo=tipo_termo)
 
 
 @app.route('/logout')

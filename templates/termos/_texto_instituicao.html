@@ -1,0 +1,56 @@
+{# Texto do termo da instituição (casa). MODELO: revisar com advogado antes de usar
+   em produção. Ao mudar qualquer palavra, suba TERMOS['instituicao']['versao'] em app.py. #}
+{% set nome_casa = casa_nome or 'a instituição' %}
+<section class="termo-texto">
+  <h2>1. Papéis de cada um</h2>
+  <p><strong>Controladora:</strong> {{ nome_casa }}. É ela quem decide quais dados de moradores, familiares e
+     equipe entram no sistema e para quê (LGPD, art. 5º, VI).</p>
+  <p><strong>Operador:</strong> o sistema GestCare, que guarda e processa os dados em nome da instituição e
+     segundo as instruções dela (art. 5º, VII, e art. 39).</p>
+
+  <h2>2. Dados tratados no sistema</h2>
+  <ul>
+    <li><strong>Moradores:</strong> identificação (nome, CPF, RG, data de nascimento), contatos de família e
+        <strong>dados de saúde</strong>: condições, alergias, remédios e doses, exames, evoluções, ficha
+        psicológica e dieta. Foto do rosto e do documento, quando a casa usa a verificação de identidade.</li>
+    <li><strong>Responsáveis e familiares:</strong> nome, CPF, e-mail, vínculo com o morador, registros de
+        acesso e, se houver verificação, fotos de documento e rosto.</li>
+    <li><strong>Equipe:</strong> nome, e-mail, perfil de acesso e registro de quem administrou cada dose.</li>
+  </ul>
+  <p>Dados de saúde e biometria são <strong>dados pessoais sensíveis</strong> (art. 5º, II) e têm proteção reforçada.</p>
+
+  <h2>3. O que a instituição se compromete a fazer</h2>
+  <ul>
+    <li>Ter base legal para cada dado que registra: em geral a tutela da saúde e o cumprimento de obrigações
+        legais e sanitárias de instituição de longa permanência (art. 11, II, "a" e "f").</li>
+    <li>Pedir consentimento específico, por escrito ou no próprio sistema, antes de colher foto de rosto ou
+        documento para verificação de identidade (art. 11, I).</li>
+    <li>Indicar um encarregado de dados e informar o contato dele (art. 41). O contato pode ser preenchido em
+        "Meu Perfil" e aparece no termo dos responsáveis.</li>
+    <li>Criar contas só para quem precisa, com o perfil certo, e desativar quem sair da equipe.</li>
+    <li>Atender os pedidos dos titulares (moradores, familiares e equipe) sobre os seus dados (art. 18).</li>
+    <li>Comunicar à ANPD e aos titulares incidentes de segurança que possam trazer risco ou dano relevante (art. 48).</li>
+  </ul>
+
+  <h2>4. O que o GestCare se compromete a fazer</h2>
+  <ul>
+    <li>Tratar os dados apenas para operar o sistema da instituição, nunca para outra finalidade, e não vendê-los.</li>
+    <li>Manter medidas de segurança: senhas cifradas, acesso por perfil, arquivos sensíveis fora da área pública,
+        registro de acesso a documentos e cópias de segurança (art. 46).</li>
+    <li>Manter sigilo e exigir sigilo da empresa de hospedagem do servidor.</li>
+    <li>Avisar a instituição sem demora se souber de um incidente de segurança.</li>
+    <li>Ajudar a instituição a atender pedidos dos titulares que dependam do sistema.</li>
+    <li>Ao fim do uso, devolver os dados à instituição ou apagá-los, salvo o que a lei mandar guardar (art. 16).</li>
+  </ul>
+
+  <h2>5. Hospedagem</h2>
+  <p>O sistema funciona em servidor contratado de empresa de hospedagem. Se o servidor ficar fora do Brasil,
+     a transferência internacional segue o art. 33 da LGPD.</p>
+
+  <h2>6. Quem aceita</h2>
+  <p>Quem aceita este termo declara ter autorização para fazê-lo em nome de {{ nome_casa }}. O aceite fica
+     registrado com nome do usuário, data, hora, versão do termo e endereço de acesso.</p>
+
+  <h2>7. Mudanças neste termo</h2>
+  <p>Se o termo mudar, o administrador será avisado ao entrar no sistema e precisará aceitar a nova versão para continuar.</p>
+</section>

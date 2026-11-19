@@ -39,6 +39,13 @@
              minlength="6" placeholder="Mínimo 6 caracteres">
     </div>
 
+    <p class="txt-apoio">
+      <svg class="ti" aria-hidden="true"><use href="#ti-shield-check"/></svg>
+      No primeiro acesso, o administrador da casa lê e aceita o
+      <a href="{{ url_for('ver_termo', tipo='instituicao') }}" target="_blank" rel="noopener">termo de uso e tratamento de dados (LGPD)</a>
+      em nome da instituição. Sem o aceite, o sistema não abre para ele.
+    </p>
+
     <div class="form-botoes esp-y-6">
       <button type="submit" class="botao botao-primario">Criar Casa</button>
       <a href="{{ url_for('listar_casas') }}" class="botao botao-secundario">Cancelar</a>

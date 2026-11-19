@@ -9,6 +9,20 @@
   </div>
 </div>
 
+{% if tipo_termo %}
+<div class="secao secao-estreita esp-y-6">
+  <p class="txt-meta">
+    <svg class="ti" aria-hidden="true"><use href="#ti-shield-check"/></svg>
+    {% if aceite %}
+      Você aceitou o termo de uso e consentimento (LGPD), versão {{ aceite.versao_termo }}, em {{ aceite.aceito_em|data_br }}.
+    {% else %}
+      Você ainda não aceitou o termo de uso e consentimento (LGPD).
+    {% endif %}
+    <a href="{{ url_for('ver_termo', tipo=tipo_termo) }}">Ler o termo</a>
+  </p>
+</div>
+{% endif %}
+
 <div class="secao secao-estreita">
   <form method="POST">
     <div class="form-grupo">
@@ -26,6 +40,12 @@
       <label class="form-label" for="nome_casa"><svg class="ti" aria-hidden="true"><use href="#ti-building-community"/></svg> Nome da Casa</label>
       <input type="text" id="nome_casa" name="nome_casa" class="form-input" required value="{{ casa.nome }}">
       <small class="txt-apoio">Esse nome aparece para toda a sua equipe e para os responsáveis.</small>
+    </div>
+    <div class="form-grupo">
+      <label class="form-label" for="contato_privacidade"><svg class="ti" aria-hidden="true"><use href="#ti-shield-check"/></svg> Contato para privacidade (LGPD)</label>
+      <input type="text" id="contato_privacidade" name="contato_privacidade" class="form-input" maxlength="200"
+             value="{{ casa.contato_privacidade or '' }}" placeholder="Ex.: Maria Souza — privacidade@suacasa.com.br">
+      <small class="txt-apoio">Nome e e-mail ou telefone do encarregado de dados da casa. Aparece no termo que os responsáveis aceitam.</small>
     </div>
     {% endif %}
 
